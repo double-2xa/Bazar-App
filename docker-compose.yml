@@ -1,0 +1,56 @@
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: doublea-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: doublea
+      POSTGRES_PASSWORD: doublea_secret
+      POSTGRES_DB: doublea_commerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doublea -d doublea_commerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: doublea-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@doublea.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: doublea-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://doublea:doublea_secret@postgres:5432/doublea_commerce?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-doublea_access_secret_change_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-doublea_refresh_secret_change_in_production}
+      JWT_ACCESS_EXPIRES: 15m
+      JWT_REFRESH_EXPIRES: 7d
+      API_PORT: 3001
+      ADMIN_URL: http://localhost:3000
+      MOBILE_API_URL: http://localhost:3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

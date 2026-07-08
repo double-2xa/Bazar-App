@@ -1,0 +1,37 @@
+{
+  "name": "doublea-commerce",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "api": "npm run start:dev --workspace=@doublea/api",
+    "api:build": "npm run build --workspace=@doublea/api",
+    "admin": "npm run dev --workspace=@doublea/admin",
+    "mobile": "npm run start --workspace=@doublea/mobile",
+    "db:migrate": "npm run prisma:migrate --workspace=@doublea/api",
+    "db:seed": "npm run prisma:seed --workspace=@doublea/api",
+    "db:studio": "npm run prisma:studio --workspace=@doublea/api",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "overrides": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "@expo/vector-icons": "14.0.3",
+    "expo-font": "12.0.10",
+    "expo": {
+      "react": "18.2.0",
+      "react-native": "0.74.5"
+    }
+  }
+}
