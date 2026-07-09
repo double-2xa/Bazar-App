@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { UserPublic, Product, PriceType } from '@doublea/shared';
-import { authApi } from '../services/endpoints';
+import { authApi, cartApi } from '../services/endpoints';
 import { tokenStorage } from '../services/tokenStorage';
 
 export interface GuestCartItem {
@@ -45,6 +45,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await tokenStorage.setItemAsync('accessToken', data.tokens.accessToken);
     await tokenStorage.setItemAsync('refreshToken', data.tokens.refreshToken);
     set({ user: data.user, isAuthenticated: true });
+
+    const guestCart = get().guestCart;
+    if (guestCart.length > 0) {
+      try {
+        for (const item of guestCart) {
+          await cartApi.addItem(item.productId, item.quantity, item.selectedPriceType);
+        }
+        get().clearGuestCart();
+      } catch {
+        /* keep guest cart if server merge fails */
+      }
+    }
+
     return data.user;
   },
 

@@ -1,52 +1,64 @@
 import { useState } from 'react';
-import { View, TextInput, FlatList, StyleSheet, Text } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, typography } from '@/theme';
 import { productsApi } from '@/services/endpoints';
-import { ProductCard, ProductCardSkeleton, EmptyState } from '@/components';
+import { ProductCard, ProductCardSkeleton, EmptyState, GlassSearchBar, ScreenContainer } from '@/components';
+import { useDebounce } from '@/hooks/useDebounce';
+import { colors, spacing, radius, typography } from '@/theme';
+
+const SORT_OPTIONS = [
+  { key: 'createdAt', label: 'Newest' },
+  { key: 'price', label: 'Price' },
+  { key: 'rating', label: 'Rating' },
+] as const;
 
 export default function SearchScreen() {
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortBy, setSortBy] = useState<(typeof SORT_OPTIONS)[number]['key']>('createdAt');
+  const debouncedSearch = useDebounce(search, 400);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['products', 'search', search, sortBy],
-    queryFn: () =>
-      productsApi.getAll({
-        search: search || undefined,
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['products', 'search', debouncedSearch, sortBy],
+    queryFn: () => {
+      const params: Record<string, string | number | boolean> = {
         sortBy,
         sortOrder: sortBy === 'price' ? 'asc' : 'desc',
         limit: 30,
-      }),
-    enabled: true,
+      };
+      if (debouncedSearch) params.search = debouncedSearch;
+      return productsApi.getAll(params);
+    },
   });
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.searchRow}>
-        <Ionicons name="search" size={20} color={colors.mutedText} />
-        <TextInput
-          style={styles.input}
-          placeholder="Search products..."
-          placeholderTextColor={colors.mutedText}
-          value={search}
-          onChangeText={setSearch}
-          autoFocus
-        />
+    <ScreenContainer scroll={false} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Search</Text>
+        <Text style={styles.subtitle}>Find products across DoubleA</Text>
       </View>
 
+      <GlassSearchBar
+        value={search}
+        onChangeText={setSearch}
+        onClear={() => setSearch('')}
+        style={styles.searchBar}
+        autoFocus
+      />
+
       <View style={styles.filters}>
-        {['createdAt', 'price', 'rating'].map((s) => (
-          <Text
-            key={s}
-            style={[styles.filterChip, sortBy === s && styles.filterActive]}
-            onPress={() => setSortBy(s)}
+        {SORT_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.key}
+            style={[styles.filterChip, sortBy === option.key && styles.filterActive]}
+            onPress={() => setSortBy(option.key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: sortBy === option.key }}
           >
-            {s === 'createdAt' ? 'Newest' : s === 'price' ? 'Price' : 'Rating'}
-          </Text>
+            <Text style={[styles.filterText, sortBy === option.key && styles.filterTextActive]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -56,6 +68,13 @@ export default function SearchScreen() {
             <ProductCardSkeleton key={i} />
           ))}
         </View>
+      ) : isError ? (
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="Search unavailable"
+          subtitle="Check your connection and try again"
+          action={<Text style={styles.retry} onPress={() => refetch()}>Retry</Text>}
+        />
       ) : (
         <FlatList
           data={data?.data}
@@ -67,45 +86,45 @@ export default function SearchScreen() {
             <EmptyState
               icon="search-outline"
               title="No products found"
-              subtitle="Try a different search term"
+              subtitle={debouncedSearch ? `No results for "${debouncedSearch}"` : 'Try a different search term'}
             />
           }
           renderItem={({ item }) => (
-            <ProductCard
-              product={item}
-              onPress={() => router.push(`/product/${item.id}`)}
-            />
+            <ProductCard product={item} onPress={() => router.push(`/product/${item.id}`)} />
           )}
         />
       )}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  searchRow: {
+  header: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  title: { ...typography.h2, color: colors.text },
+  subtitle: { ...typography.bodySmall, color: colors.mutedText, marginTop: 4 },
+  searchBar: { marginHorizontal: spacing.md, marginTop: spacing.md },
+  filters: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    margin: spacing.md,
     paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
     gap: spacing.sm,
+    marginVertical: spacing.md,
   },
-  input: { flex: 1, ...typography.body, color: colors.text, paddingVertical: 12 },
-  filters: { flexDirection: 'row', paddingHorizontal: spacing.md, gap: spacing.sm, marginBottom: spacing.sm },
   filterChip: {
-    ...typography.bodySmall,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
     backgroundColor: colors.surface,
-    color: colors.mutedText,
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  filterActive: { backgroundColor: colors.primary, color: colors.secondary, fontWeight: '600' },
+  filterActive: {
+    backgroundColor: colors.primaryTint,
+    borderColor: colors.primary,
+  },
+  filterText: { ...typography.bodySmall, color: colors.mutedText, fontWeight: '500' },
+  filterTextActive: { color: colors.primaryDark, fontWeight: '700' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', padding: spacing.md },
   row: { justifyContent: 'space-between', paddingHorizontal: spacing.md },
-  list: { paddingBottom: spacing.xl },
+  list: { paddingBottom: spacing.xxl + 80, flexGrow: 1 },
+  retry: { ...typography.body, color: colors.primary, fontWeight: '600' },
 });

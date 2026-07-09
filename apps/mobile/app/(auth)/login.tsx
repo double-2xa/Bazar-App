@@ -31,13 +31,19 @@ export default function LoginScreen() {
               text: 'Open Dashboard',
               onPress: () => Linking.openURL(process.env.EXPO_PUBLIC_ADMIN_URL || 'http://localhost:3000'),
             },
-            { text: 'OK', onPress: () => router.back() },
+            {
+              text: 'OK',
+              onPress: () => {
+                useAuthStore.getState().logout();
+              },
+            },
           ],
         );
+        return;
       } else if (user.role === 'delivery_agent') {
         router.replace('/(delivery)');
       } else {
-        router.back();
+        router.replace('/(tabs)');
       }
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Login failed';

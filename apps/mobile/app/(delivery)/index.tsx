@@ -1,16 +1,15 @@
-import { ScrollView, Text, StyleSheet, View } from 'react-native';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography } from '@/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { deliveryApi } from '@/services/endpoints';
-import { OrderCard, EmptyState } from '@/components';
+import { OrderCard, EmptyState, ScreenContainer, GlassCard } from '@/components';
+import { colors, spacing, typography } from '@/theme';
 
 const STATUS_SECTIONS = [
-  { key: 'assigned', label: 'Assigned' },
-  { key: 'picked_up', label: 'Picked Up' },
-  { key: 'on_the_way', label: 'On The Way' },
-  { key: 'delivered', label: 'Delivered' },
+  { key: 'assigned', label: 'Assigned', icon: 'clipboard-outline' as const },
+  { key: 'picked_up', label: 'Picked up', icon: 'cube-outline' as const },
+  { key: 'on_the_way', label: 'On the way', icon: 'navigate-outline' as const },
 ] as const;
 
 export default function DeliveryDashboardScreen() {
@@ -20,22 +19,38 @@ export default function DeliveryDashboardScreen() {
     refetchInterval: 30000,
   });
 
+  const activeCount =
+    (data?.assigned?.length ?? 0) +
+    (data?.picked_up?.length ?? 0) +
+    (data?.on_the_way?.length ?? 0);
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Delivery Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Your assigned orders</Text>
-      </View>
-      <ScrollView contentContainerStyle={styles.content}>
-        {isLoading ? (
-          <Text style={styles.loading}>Loading orders...</Text>
-        ) : (
-          STATUS_SECTIONS.map(({ key, label }) => {
-            const orders = data?.[key] || [];
+    <ScreenContainer scroll={false} edges={['top']}>
+      <GlassCard style={styles.hero} dark>
+        <Text style={styles.heroEyebrow}>Driver console</Text>
+        <Text style={styles.heroTitle}>Active routes</Text>
+        <Text style={styles.heroSubtitle}>{activeCount} deliveries in progress</Text>
+      </GlassCard>
+
+      {isLoading ? (
+        <Text style={styles.loading}>Loading orders...</Text>
+      ) : (
+        <FlatList
+          data={STATUS_SECTIONS}
+          keyExtractor={(item) => item.key}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={null}
+          renderItem={({ item: section }) => {
+            const orders = data?.[section.key] || [];
             if (orders.length === 0) return null;
             return (
-              <View key={key}>
-                <Text style={styles.sectionTitle}>{label} ({orders.length})</Text>
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name={section.icon} size={18} color={colors.mapAccent} />
+                  <Text style={styles.sectionTitle}>
+                    {section.label} ({orders.length})
+                  </Text>
+                </View>
                 {orders.map((order: { id: string }) => (
                   <OrderCard
                     key={order.id}
@@ -46,22 +61,33 @@ export default function DeliveryDashboardScreen() {
                 ))}
               </View>
             );
-          })
-        )}
-        {!isLoading && !data?.assigned?.length && !data?.picked_up?.length && !data?.on_the_way?.length && (
-          <EmptyState icon="bicycle-outline" title="No active deliveries" subtitle="New assignments will appear here" />
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          }}
+          ListFooterComponent={
+            !isLoading && activeCount === 0 ? (
+              <EmptyState
+                icon="bicycle-outline"
+                title="No active deliveries"
+                subtitle="New assignments will appear here automatically"
+              />
+            ) : null
+          }
+        />
+      )}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { backgroundColor: colors.secondary, padding: spacing.lg },
-  headerTitle: { ...typography.h2, color: colors.surface },
-  headerSubtitle: { ...typography.bodySmall, color: colors.primaryLight, marginTop: 4 },
-  content: { padding: spacing.md },
-  sectionTitle: { ...typography.h3, color: colors.text, marginTop: spacing.md, marginBottom: spacing.sm },
+  hero: {
+    margin: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  heroEyebrow: { ...typography.caption, color: colors.primaryLight },
+  heroTitle: { ...typography.h2, color: colors.surface, marginTop: 4 },
+  heroSubtitle: { ...typography.bodySmall, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
   loading: { ...typography.body, color: colors.mutedText, textAlign: 'center', marginTop: spacing.xl },
+  list: { paddingHorizontal: spacing.md, paddingBottom: spacing.xxl + 80 },
+  section: { marginBottom: spacing.md },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  sectionTitle: { ...typography.h3, color: colors.text },
 });

@@ -2,31 +2,45 @@ import { useQuery } from '@tanstack/react-query';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Image,
-  FlatList,
+  ScrollView,
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
-import { productsApi, categoriesApi, bannersApi } from '@/services/endpoints';
+import { productsApi, categoriesApi, bannersApi, addressesApi } from '@/services/endpoints';
 import {
   ProductCard,
   CategoryCard,
   SectionHeader,
   HomeLoadingSkeleton,
   CompanyPriceToggle,
+  GlassSearchBar,
+  ScreenContainer,
 } from '@/components';
 import { useAuthStore } from '@/store/authStore';
+import { useAddToCart } from '@/hooks/useAddToCart';
+import { colors, spacing, radius, typography, shadows } from '@/theme';
 
 export default function HomeScreen() {
-  const { user, showCompanyPrice, setShowCompanyPrice } = useAuthStore();
+  const { user, showCompanyPrice, setShowCompanyPrice, isAuthenticated } = useAuthStore();
+  const { addToCart } = useAddToCart();
   const isCompany = user?.role === 'company' && user.companyProfile?.status === 'approved';
+
+  const { data: addresses } = useQuery({
+    queryKey: ['addresses'],
+    queryFn: addressesApi.getAll,
+    enabled: isAuthenticated,
+  });
+
+  const defaultAddress = addresses?.find((a) => a.isDefault) ?? addresses?.[0];
+  const locationLabel = defaultAddress
+    ? `${defaultAddress.city}${defaultAddress.street ? `, ${defaultAddress.street}` : ''}`
+    : isAuthenticated
+      ? 'Add delivery address'
+      : 'Browse & shop anywhere';
 
   const { data: categories, isLoading: catLoading } = useQuery({
     queryKey: ['categories'],
@@ -52,131 +66,195 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenContainer scroll={false}>
         <HomeLoadingSkeleton />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
-        showsVerticalScrollIndicator={false}
+    <ScreenContainer
+      bottomInset={spacing.xxl + 80}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+    >
+      <View style={styles.brandRow}>
+        <View style={styles.brandMark}>
+          <Text style={styles.brandMarkText}>DA</Text>
+        </View>
+        <View style={styles.brandCopy}>
+          <Text style={styles.brandTitle}>DoubleA</Text>
+          <Text style={styles.brandSubtitle}>Commerce · Geo-ready delivery</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={styles.locationRow}
+        onPress={() => (isAuthenticated ? router.push('/addresses') : router.push('/(auth)/login'))}
+        accessibilityLabel="Delivery location"
+        accessibilityRole="button"
       >
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.locationRow}>
-            <Ionicons name="location" size={18} color={colors.primary} />
-            <View>
-              <Text style={styles.deliverTo}>Deliver to</Text>
-              <Text style={styles.location}>New York, NY</Text>
-            </View>
-            <Ionicons name="chevron-down" size={16} color={colors.mutedText} />
-          </TouchableOpacity>
+        <View style={styles.locationIcon}>
+          <Ionicons name="location" size={18} color={colors.mapAccent} />
         </View>
+        <View style={styles.locationTextWrap}>
+          <Text style={styles.deliverTo}>Deliver to</Text>
+          <Text style={styles.location} numberOfLines={1}>
+            {locationLabel}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.mutedText} />
+      </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.searchBar}
-          onPress={() => router.push('/(tabs)/search')}
-          activeOpacity={0.8}
+      <GlassSearchBar
+        value=""
+        onChangeText={() => {}}
+        editable={false}
+        onPress={() => router.push('/(tabs)/search')}
+        style={styles.searchBar}
+        placeholder="Search products, brands, categories..."
+      />
+
+      {isCompany && (
+        <View style={styles.companyToggle}>
+          <CompanyPriceToggle showCompanyPrice={showCompanyPrice} onToggle={setShowCompanyPrice} />
+        </View>
+      )}
+
+      {user?.role === 'company' && user.companyProfile?.status === 'pending' && (
+        <View style={styles.pendingBanner}>
+          <Ionicons name="time-outline" size={18} color={colors.warning} />
+          <Text style={styles.pendingText}>Wholesale account pending approval</Text>
+        </View>
+      )}
+
+      {banners && banners.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.bannerScroll}
+          contentContainerStyle={styles.bannerList}
         >
-          <Ionicons name="search" size={20} color={colors.mutedText} />
-          <Text style={styles.searchPlaceholder}>Search products, brands...</Text>
-        </TouchableOpacity>
-
-        {isCompany && (
-          <View style={styles.companyToggle}>
-            <CompanyPriceToggle showCompanyPrice={showCompanyPrice} onToggle={setShowCompanyPrice} />
-          </View>
-        )}
-
-        {banners && banners.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bannerScroll}>
-            {banners.map((banner: { id: string; imageUrl: string; title: string; subtitle?: string }) => (
-              <View key={banner.id} style={styles.bannerCard}>
-                <Image source={{ uri: banner.imageUrl }} style={styles.bannerImage} />
-                <View style={styles.bannerOverlay}>
-                  <Text style={styles.bannerTitle}>{banner.title}</Text>
-                  {banner.subtitle && <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>}
-                </View>
+          {banners.map((item: { id: string; imageUrl: string; title: string; subtitle?: string }) => (
+            <View key={item.id} style={styles.bannerCard}>
+              <Image source={{ uri: item.imageUrl }} style={styles.bannerImage} />
+              <View style={styles.bannerOverlay}>
+                <Text style={styles.bannerTitle}>{item.title}</Text>
+                {item.subtitle ? <Text style={styles.bannerSubtitle}>{item.subtitle}</Text> : null}
               </View>
-            ))}
-          </ScrollView>
-        )}
-
-        <SectionHeader title="Categories" actionLabel="See all" onAction={() => router.push('/(tabs)/search')} />
-        <FlatList
-          horizontal
-          data={categories}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <CategoryCard category={item} onPress={() => router.push(`/category/${item.slug}`)} />
-          )}
-          contentContainerStyle={styles.categoryList}
-          showsHorizontalScrollIndicator={false}
-        />
-
-        <SectionHeader title="Featured" />
-        <FlatList
-          horizontal
-          data={featured?.data}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.featuredCard}>
-              <ProductCard
-                product={item}
-                onPress={() => router.push(`/product/${item.id}`)}
-                onAddToCart={() => {}}
-              />
             </View>
-          )}
-          contentContainerStyle={styles.featuredList}
-          showsHorizontalScrollIndicator={false}
-        />
-
-        <SectionHeader title="Recommended for You" />
-        <View style={styles.productGrid}>
-          {products?.data?.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onPress={() => router.push(`/product/${product.id}`)}
-              onAddToCart={() => {}}
-            />
           ))}
-        </View>
-        <View style={{ height: spacing.xl }} />
+        </ScrollView>
+      )}
+
+      <SectionHeader title="Shop by category" actionLabel="Browse" onAction={() => router.push('/(tabs)/search')} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryList}
+      >
+        {categories?.map((item) => (
+          <CategoryCard key={item.id} category={item} onPress={() => router.push(`/category/${item.slug}`)} />
+        ))}
       </ScrollView>
-    </SafeAreaView>
+
+      <SectionHeader title="Featured picks" />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.featuredList}
+      >
+        {featured?.data?.map((item) => (
+          <View key={item.id} style={styles.featuredCard}>
+            <ProductCard
+              product={item}
+              onPress={() => router.push(`/product/${item.id}`)}
+              onAddToCart={() => addToCart(item)}
+            />
+          </View>
+        ))}
+      </ScrollView>
+
+      <SectionHeader title="Recommended for you" />
+      <View style={styles.productGrid}>
+        {products?.data?.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            onPress={() => router.push(`/product/${product.id}`)}
+            onAddToCart={() => addToCart(product)}
+          />
+        ))}
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  deliverTo: { ...typography.caption, color: colors.mutedText },
-  location: { ...typography.bodySmall, color: colors.text, fontWeight: '600' },
-  searchBar: {
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
+  },
+  brandMark: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandMarkText: {
+    color: colors.primary,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  brandCopy: { flex: 1 },
+  brandTitle: { ...typography.h2, color: colors.text },
+  brandSubtitle: { ...typography.caption, color: colors.mutedText, marginTop: 2 },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     gap: spacing.sm,
     ...shadows.sm,
   },
-  searchPlaceholder: { ...typography.body, color: colors.mutedText, flex: 1 },
-  companyToggle: { paddingHorizontal: spacing.md },
+  locationIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationTextWrap: { flex: 1 },
+  deliverTo: { ...typography.caption, color: colors.mutedText },
+  location: { ...typography.bodySmall, color: colors.text, fontWeight: '600' },
+  searchBar: { marginHorizontal: spacing.md, marginTop: spacing.md },
+  companyToggle: { paddingHorizontal: spacing.md, marginTop: spacing.sm },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderRadius: radius.md,
+  },
+  pendingText: { ...typography.bodySmall, color: colors.warning, fontWeight: '600' },
   bannerScroll: { marginTop: spacing.md },
+  bannerList: { paddingLeft: spacing.md },
   bannerCard: {
     width: 300,
-    height: 140,
-    marginLeft: spacing.md,
-    borderRadius: borderRadius.lg,
+    height: 148,
+    marginRight: spacing.md,
+    borderRadius: radius.lg,
     overflow: 'hidden',
     ...shadows.md,
   },
@@ -187,7 +265,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   bannerTitle: { ...typography.h3, color: colors.surface },
   bannerSubtitle: { ...typography.bodySmall, color: colors.surface, opacity: 0.9 },

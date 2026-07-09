@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, registerCompanySchema } from '@doublea/shared';
+import type { z } from 'zod';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { authApi } from '@/services/endpoints';
@@ -25,17 +26,22 @@ export default function RegisterScreen() {
     },
   });
 
-  const onSubmit = async (data: Record<string, string>) => {
+  const onSubmit = async (data: z.infer<typeof registerSchema> & z.infer<typeof registerCompanySchema>) => {
     setLoading(true);
     try {
       const result = isCompany
         ? await authApi.registerCompany(data)
-        : await authApi.register(data);
+        : await authApi.register({
+            email: data.email,
+            password: data.password,
+            fullName: data.fullName,
+            phone: data.phone,
+          });
       await tokenStorage.setItemAsync('accessToken', result.tokens.accessToken);
       await tokenStorage.setItemAsync('refreshToken', result.tokens.refreshToken);
       setUser(result.user);
       Alert.alert('Success', isCompany ? 'Company account created. Pending approval.' : 'Account created successfully!');
-      router.back();
+      router.replace('/(tabs)');
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Registration failed';
       Alert.alert('Error', message);

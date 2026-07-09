@@ -79,8 +79,13 @@ export function ProductCard({
         <View style={styles.footer}>
           <PriceDisplay price={price} originalPrice={originalPrice} size="sm" />
           {onAddToCart && (
-            <TouchableOpacity style={styles.addBtn} onPress={onAddToCart}>
-              <Ionicons name="add" size={18} color={colors.surface} />
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={onAddToCart}
+              accessibilityLabel="Add to cart"
+              accessibilityRole="button"
+            >
+              <Ionicons name="add" size={18} color={colors.secondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -95,6 +100,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     ...shadows.sm,
     overflow: 'hidden',
   },

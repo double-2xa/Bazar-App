@@ -1,25 +1,39 @@
-import { ScrollView, Text, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { colors, spacing, typography } from '@/theme';
+import { router } from 'expo-router';
 import { deliveryApi } from '@/services/endpoints';
-import { OrderCard } from '@/components';
+import { OrderCard, ScreenContainer } from '@/components';
+import { colors, spacing, typography } from '@/theme';
 
 export default function DeliveryCompletedScreen() {
   const { data } = useQuery({ queryKey: ['delivery-orders'], queryFn: deliveryApi.getOrders });
   const orders = data?.delivered || [];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Completed Deliveries ({orders.length})</Text>
-      {orders.map((order: { id: string }) => (
-        <OrderCard key={order.id} order={order as never} onPress={() => {}} showCustomer />
-      ))}
-    </ScrollView>
+    <ScreenContainer scroll={false}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Completed deliveries</Text>
+        <Text style={styles.subtitle}>{orders.length} delivered orders</Text>
+      </View>
+      <FlatList
+        data={orders}
+        keyExtractor={(item: { id: string }) => item.id}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }: { item: { id: string } }) => (
+          <OrderCard
+            order={item as never}
+            onPress={() => router.push(`/delivery-order/${item.id}`)}
+            showCustomer
+          />
+        )}
+      />
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md },
-  title: { ...typography.h3, marginBottom: spacing.md },
+  header: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  title: { ...typography.h2, color: colors.text },
+  subtitle: { ...typography.bodySmall, color: colors.mutedText, marginTop: 4 },
+  list: { padding: spacing.md, paddingBottom: spacing.xxl + 80 },
 });

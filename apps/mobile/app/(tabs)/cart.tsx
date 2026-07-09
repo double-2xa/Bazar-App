@@ -1,13 +1,11 @@
-import { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { cartApi } from '@/services/endpoints';
 import { useAuthStore } from '@/store/authStore';
-import { AppButton, EmptyState, PriceDisplay } from '@/components';
+import { AppButton, EmptyState, PriceDisplay, FloatingActionBar } from '@/components';
 
 export default function CartScreen() {
   const { isAuthenticated, guestCart, updateGuestCartItem, removeFromGuestCart } = useAuthStore();
@@ -59,27 +57,27 @@ export default function CartScreen() {
 
   if (isLoading && isAuthenticated) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.loadingWrap}>
         <Text style={styles.loadingText}>Loading cart...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (items.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <EmptyState
           icon="cart-outline"
           title="Your cart is empty"
           subtitle="Browse products and add items to your cart"
           action={<AppButton title="Start Shopping" onPress={() => router.push('/(tabs)')} />}
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         {items.map((item: { id: string; product?: { id: string; name: string; imageUrl?: string; normalPrice: number; companyPrice: number }; quantity: number; selectedPriceType?: string }) => {
           const price =
@@ -150,24 +148,25 @@ export default function CartScreen() {
         })}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <FloatingActionBar avoidTabBar>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal</Text>
           <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
         </View>
         <AppButton title="Proceed to Checkout" onPress={handleCheckout} fullWidth size="lg" />
-        {!isAuthenticated && (
+        {!isAuthenticated ? (
           <Text style={styles.guestNote}>Sign in required to place order</Text>
-        )}
-      </View>
-    </SafeAreaView>
+        ) : null}
+      </FloatingActionBar>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   loadingText: { ...typography.body, color: colors.mutedText, textAlign: 'center', marginTop: spacing.xl },
-  content: { padding: spacing.md },
+  content: { padding: spacing.md, paddingBottom: 180 },
   item: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
@@ -191,14 +190,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   qty: { ...typography.body, fontWeight: '600', minWidth: 24, textAlign: 'center' },
-  footer: {
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    ...shadows.lg,
-  },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
   summaryLabel: { ...typography.body, color: colors.mutedText },
   summaryValue: { ...typography.h3, color: colors.text },
   guestNote: { ...typography.caption, color: colors.mutedText, textAlign: 'center', marginTop: spacing.sm },

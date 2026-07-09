@@ -1,32 +1,43 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { colors } from '@/theme';
+import { GlassTabBarBackground, glassTabBarStyle } from '@/components';
+import { useCartCount } from '@/hooks/useCartCount';
+import { useRoleGuard } from '@/hooks/useRoleGuard';
 import { useAuthStore } from '@/store/authStore';
 
 export default function TabLayout() {
-  const { guestCart, getGuestCartCount, isAuthenticated } = useAuthStore();
-  const cartCount = isAuthenticated ? 0 : getGuestCartCount();
+  const cartCount = useCartCount();
+  const { isLoading } = useAuthStore();
+  useRoleGuard({ allowed: 'shopper' });
+
+  if (isLoading) return null;
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedText,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          paddingBottom: 4,
-          height: 60,
+        tabBarStyle: glassTabBarStyle,
+        tabBarBackground: () => <GlassTabBarBackground />,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginBottom: Platform.OS === 'ios' ? 0 : 4,
         },
-        headerStyle: { backgroundColor: colors.surface },
+        headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.text,
         headerShadowVisible: false,
+        headerTitleStyle: { fontWeight: '700' },
+        sceneStyle: { backgroundColor: colors.background },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
         }}
       />
@@ -34,6 +45,7 @@ export default function TabLayout() {
         name="search"
         options={{
           title: 'Search',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size} color={color} />,
         }}
       />
