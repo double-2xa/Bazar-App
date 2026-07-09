@@ -4,7 +4,7 @@ import { colors, borderRadius, typography, spacing } from '../theme';
 
 interface BadgeProps {
   label: string;
-  variant?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'company';
+  variant?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'company' | 'deal';
 }
 
 export function Badge({ label, variant = 'primary' }: BadgeProps) {
@@ -27,12 +27,14 @@ const styles = StyleSheet.create({
   warning: { backgroundColor: colors.warning + '22' },
   danger: { backgroundColor: colors.danger + '22' },
   info: { backgroundColor: colors.info + '22' },
-  company: { backgroundColor: colors.companyBadge + '22' },
+  company: { backgroundColor: colors.companyBadge },
+  deal: { backgroundColor: colors.dealBadgeBg },
   text: { ...typography.caption, fontWeight: '600' },
   text_primary: { color: colors.primaryDark },
   text_success: { color: colors.success },
   text_warning: { color: colors.warning },
   text_danger: { color: colors.danger },
   text_info: { color: colors.info },
-  text_company: { color: colors.companyBadge },
+  text_company: { color: colors.warmCream },
+  text_deal: { color: colors.dealBadgeText },
 });

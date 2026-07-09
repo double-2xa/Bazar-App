@@ -1,0 +1,45 @@
+# Backend API Rules
+
+The backend is in:
+
+apps/api
+
+Stack:
+- NestJS
+- Prisma
+- PostgreSQL
+- JWT auth
+- class-validator DTOs
+
+## API principles
+
+- Backend is the source of truth.
+- Never trust frontend role checks.
+- Validate all inputs.
+- Use transactions for orders, payments, delivery status, and stock changes.
+- Keep controllers thin and services clear.
+- Return clear errors.
+
+## Auth rules
+
+- Use JWT guard and role decorators consistently.
+- Public endpoints must be intentional.
+- Protected endpoints must check ownership or role.
+- Delivery agents can only access assigned orders.
+- Company pricing must be checked server-side.
+
+## Database rules
+
+- Use Prisma migrations for schema changes.
+- Do not edit generated files.
+- Do not change schema without explaining migration impact.
+- Preserve existing demo seed accounts unless intentionally updating seed data.
+
+## Production readiness
+
+Avoid:
+- open CORS in production
+- default secrets
+- health endpoints behind auth
+- missing rate limits on auth
+- fake payment status changes without business rules

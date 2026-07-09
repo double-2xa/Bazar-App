@@ -1,0 +1,56 @@
+# Engineering Principles
+
+Follow professional software engineering standards.
+
+## Before changing code
+
+Always inspect the existing implementation first.
+Do not rewrite files blindly.
+Do not remove working logic.
+Do not introduce new dependencies without explaining why.
+Do not fake completed features.
+
+## Code quality
+
+- Use TypeScript strictly.
+- Prefer small reusable components.
+- Avoid huge screen files when logic can be extracted.
+- Avoid duplicated business logic.
+- Avoid hardcoded URLs, prices, user IDs, and fake locations.
+- Keep UI logic separate from API/data logic where possible.
+- Use existing services/hooks before creating new ones.
+- Keep naming consistent.
+
+## No-op rule
+
+Never leave clickable UI with empty handlers like:
+
+onPress={() => {}}
+
+If a button is not implemented:
+- hide it, or
+- disable it with explanation, or
+- create a TODO with the required implementation.
+
+## Security rule
+
+Frontend role checks are for UX only.
+Backend must enforce real access control.
+
+## Data rule
+
+Do not invent data shapes.
+Use the API types, shared types, Prisma schema, or existing services.
+
+## Change size
+
+Prefer focused changes.
+Do not combine UI redesign, backend refactor, and database migration in one task unless explicitly requested.
+
+## Documentation
+
+For every important change, update or create a short note explaining:
+- what changed
+- why it changed
+- files affected
+- how to test

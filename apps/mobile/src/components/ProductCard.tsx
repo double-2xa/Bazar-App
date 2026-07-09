@@ -50,7 +50,7 @@ export function ProductCard({
           style={styles.image}
           resizeMode="cover"
         />
-        {discount > 0 && <Badge label={`-${discount}%`} variant="danger" />}
+        {discount > 0 && <Badge label={`-${discount}%`} variant="deal" />}
         {isCompany && (
           <View style={styles.companyBadge}>
             <Badge label="Company" variant="company" />
@@ -85,7 +85,7 @@ export function ProductCard({
               accessibilityLabel="Add to cart"
               accessibilityRole="button"
             >
-              <Ionicons name="add" size={18} color={colors.secondary} />
+              <Ionicons name="add" size={18} color={colors.surface} />
             </TouchableOpacity>
           )}
         </View>

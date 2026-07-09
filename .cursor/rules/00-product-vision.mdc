@@ -1,0 +1,48 @@
+# Product Vision — Nice Price Bazar
+
+This project is a professional e-commerce, wholesale, and delivery platform for Nice Price Bazar.
+
+The product is NOT a generic Amazon clone.
+The product is NOT a random AI-generated shopping app.
+The product must feel connected to the real physical shop: affordable, colorful, useful, practical, local, and friendly.
+
+## Core product goals
+
+- Customers can browse products as guests.
+- Customers can register and order products.
+- Wholesale/company customers can see special prices when approved.
+- Delivery agents can manage assigned deliveries.
+- Admins manage products, users, companies, orders, and delivery operations from the admin dashboard.
+- The app should later become geo-specialized with maps, address picking, delivery zones, live delivery tracking, and route UX.
+
+## User roles
+
+- Guest
+- Normal customer
+- Wholesale/company customer
+- Delivery agent
+- Platform admin
+
+## Product personality
+
+The app should feel:
+- trustworthy
+- fast
+- practical
+- warm
+- clear
+- premium enough for iOS
+- recognizable as Nice Price Bazar
+
+The app should NOT feel:
+- generic
+- copied from Amazon
+- overloaded with red/yellow
+- childish
+- AI-generated
+- fake or full of non-working features
+
+## Important rule
+
+Never add fake UI for features that are not implemented.
+If a feature needs backend/API support, create a TODO and explain the required backend work.

@@ -26,7 +26,7 @@ export function PriceDisplay({ price, originalPrice, size = 'md', showCompanyBad
 
 const styles = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.xs },
-  price: { fontWeight: '700', color: colors.text },
+  price: { fontWeight: '700', color: colors.primaryDark },
   original: { textDecorationLine: 'line-through', color: colors.mutedText, fontWeight: '400' },
   sm: { fontSize: 13 },
   md: { fontSize: 16 },

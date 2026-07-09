@@ -1,0 +1,58 @@
+# React Native / Expo Rules
+
+The mobile app is in:
+
+apps/mobile
+
+Stack:
+- Expo
+- React Native
+- TypeScript
+- Expo Router
+- Zustand
+- TanStack React Query
+- Axios
+- expo-secure-store
+- react-native-maps
+- expo-blur
+- expo-haptics
+
+## Expo rules
+
+- Keep Expo SDK compatibility.
+- Do not add native libraries unless Expo-compatible.
+- Prefer Expo packages when possible.
+- Do not break Expo Go unless explicitly required.
+- If a package requires EAS/dev client, clearly explain before adding it.
+
+## Routing rules
+
+- Use Expo Router conventions.
+- Do not break file-based routes.
+- Keep role routing clear:
+  - guest/customer/company -> shopping tabs
+  - delivery_agent -> delivery tabs
+  - admin -> show admin dashboard guidance
+
+## State rules
+
+- Use React Query for server state.
+- Use Zustand only for local/session state.
+- Invalidate queries after mutations.
+- Do not manually duplicate server state unless necessary.
+
+## Performance rules
+
+- Avoid nested FlatList inside ScrollView.
+- Use FlatList for long lists.
+- Debounce search.
+- Avoid expensive blur on large scroll areas.
+- Keep product grids smooth.
+
+## iOS testing
+
+Before marking mobile work done:
+- run npx tsc --noEmit
+- run npx expo-doctor
+- run npx expo start --clear
+- test on iPhone when UI/navigation is changed

@@ -1,0 +1,46 @@
+# Geo and Delivery Rules
+
+DoubleA wants to specialize in geo applications.
+Nice Price Bazar delivery should become a strong differentiator.
+
+## Current geo state
+
+Current geo features are basic.
+Do not fake live tracking or route optimization if backend support does not exist.
+
+## Future geo goals
+
+Build toward:
+- address autocomplete
+- map-based address picker
+- customer delivery tracking map
+- driver location updates
+- delivery route display
+- delivery zones
+- distance-based delivery fee
+- ETA
+- PostGIS support later
+
+## Map UI rules
+
+- Maps should feel useful, not decorative.
+- Use glass for floating controls and bottom sheets.
+- Do not cover the map with too many panels.
+- Show clear empty states when coordinates are missing.
+- External navigation is acceptable until in-app routing is implemented.
+
+## Delivery UX
+
+Driver app must be:
+- simple
+- fast
+- safe while moving
+- large buttons
+- clear status workflow
+- minimal typing
+- map-first where useful
+
+## No fake geo
+
+If no live GPS API exists, do not show fake live tracking.
+Create TODOs and required backend contracts instead.

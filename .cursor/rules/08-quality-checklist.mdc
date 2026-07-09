@@ -1,0 +1,51 @@
+# Quality Checklist
+
+Before completing any task, verify:
+
+## Code
+
+- TypeScript passes
+- No unused imports
+- No broken imports
+- No no-op buttons
+- No hardcoded localhost URLs
+- No fake data unless clearly marked as seed/demo
+- No duplicated large logic
+
+## Mobile
+
+- Expo starts
+- No red screen
+- Navigation works
+- iOS safe area works
+- Keyboard does not hide forms
+- Tab bar does not cover actions
+- Loading states exist
+- Error states exist
+- Empty states exist
+
+## Backend
+
+- DTO validation exists
+- Role checks exist
+- Ownership checks exist
+- Errors are meaningful
+- Prisma queries are safe
+- Transactions used for critical flows
+
+## UX
+
+- User can understand what to do
+- Buttons do what they say
+- Disabled buttons explain why
+- No screen looks like placeholder unless intentionally marked
+- Brand colors are consistent
+
+## Definition of done
+
+A task is not done until:
+- it compiles
+- it runs
+- main flow is tested
+- changed files are summarized
+- known limitations are documented

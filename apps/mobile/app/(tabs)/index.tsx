@@ -79,11 +79,11 @@ export default function HomeScreen() {
     >
       <View style={styles.brandRow}>
         <View style={styles.brandMark}>
-          <Text style={styles.brandMarkText}>DA</Text>
+          <Text style={styles.brandMarkText}>NPB</Text>
         </View>
         <View style={styles.brandCopy}>
-          <Text style={styles.brandTitle}>DoubleA</Text>
-          <Text style={styles.brandSubtitle}>Commerce · Geo-ready delivery</Text>
+          <Text style={styles.brandTitle}>Nice Price Bazar</Text>
+          <Text style={styles.brandSubtitle}>Your local shop · Home delivery</Text>
         </View>
       </View>
 
@@ -111,7 +111,7 @@ export default function HomeScreen() {
         editable={false}
         onPress={() => router.push('/(tabs)/search')}
         style={styles.searchBar}
-        placeholder="Search products, brands, categories..."
+        placeholder="Search household goods, toys, and more..."
       />
 
       {isCompany && (
@@ -201,14 +201,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandMarkText: {
-    color: colors.primary,
+    color: colors.brandYellow,
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: 13,
+    letterSpacing: 0.5,
   },
   brandCopy: { flex: 1 },
   brandTitle: { ...typography.h2, color: colors.text },
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -256,6 +257,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     borderRadius: radius.lg,
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: colors.primaryLight,
     ...shadows.md,
   },
   bannerImage: { width: '100%', height: '100%' },
@@ -265,10 +268,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: spacing.md,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(122, 16, 32, 0.62)',
   },
-  bannerTitle: { ...typography.h3, color: colors.surface },
-  bannerSubtitle: { ...typography.bodySmall, color: colors.surface, opacity: 0.9 },
+  bannerTitle: { ...typography.h3, color: colors.warmCream },
+  bannerSubtitle: { ...typography.bodySmall, color: colors.brandYellow, fontWeight: '500' },
   categoryList: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   featuredList: { paddingHorizontal: spacing.md },
   featuredCard: { marginRight: spacing.sm },

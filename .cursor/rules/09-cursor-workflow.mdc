@@ -1,0 +1,44 @@
+# Cursor Workflow Rules
+
+Before coding:
+
+1. Read the relevant files.
+2. Explain the current state.
+3. Propose a short plan.
+4. Wait for confirmation if the change is large.
+5. Then implement.
+
+For small bug fixes, implementation can happen directly, but still summarize what changed.
+
+## Never do this
+
+- Do not rewrite the whole app.
+- Do not delete working code without reason.
+- Do not add big dependencies silently.
+- Do not create fake features.
+- Do not leave placeholder buttons.
+- Do not ignore TypeScript errors.
+- Do not make design changes inconsistent with Nice Price Bazar brand.
+
+## Always report
+
+At the end of every task, provide:
+
+- Summary
+- Files changed
+- How to test
+- Commands run
+- Remaining TODOs
+- Any risks
+
+## Preferred task style
+
+Work in small professional increments:
+- one screen
+- one flow
+- one bug group
+- one design system update
+- one API feature
+- one migration
+
+Avoid mixing unrelated work.

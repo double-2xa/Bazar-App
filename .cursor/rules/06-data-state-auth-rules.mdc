@@ -1,0 +1,56 @@
+# Data, State, and Auth Rules
+
+## Roles
+
+Current roles:
+- normal_user
+- company
+- delivery_agent
+- admin
+
+Do not invent new roles without updating:
+- Prisma schema
+- shared constants/types
+- backend guards
+- mobile routing
+- admin UI
+
+## Cart
+
+Cart behavior must support:
+- guest cart
+- server cart
+- cart badge
+- guest cart merge on login
+- checkout from authenticated cart
+
+Do not break guest cart behavior.
+
+## Company pricing
+
+Company pricing is allowed only when:
+- user role is company
+- company profile exists
+- company status is approved
+
+Frontend may show/hide UI, but backend must enforce pricing.
+
+## Delivery
+
+Delivery status changes must:
+- update order status
+- update delivery status/history
+- invalidate related mobile queries
+- not allow unassigned drivers to update orders
+
+## Query invalidation
+
+After mutations, invalidate affected queries:
+- cart
+- cart count
+- orders
+- order detail
+- delivery orders
+- delivery order detail
+- wishlist
+- addresses

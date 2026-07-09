@@ -1,0 +1,65 @@
+# Brand Identity — Nice Price Bazar
+
+The brand is based on the real shop sign:
+- Red signage
+- Yellow background
+- Local bazar / affordable shop feeling
+- Practical household, toys, family products, daily goods
+
+## Brand colors
+
+Use these theme tokens as the starting point:
+
+- brandRed: #C8102E
+- brandYellow: #FFD21E
+- deepRed: #7A1020
+- warmCream: #FFF8E7
+- charcoal: #1F1F1F
+- mutedBrown: #6B4A2D
+- successGreen: #2E9D58
+- warningOrange: #F59E0B
+
+## Usage rules
+
+Use red for:
+- brand identity
+- important highlights
+- selected navigation state
+- key badges
+- primary brand moments
+
+Use yellow for:
+- deal banners
+- promo cards
+- price highlights
+- small warm accents
+
+Use cream for:
+- screen background
+- calm content surfaces
+
+Use charcoal for:
+- readable text
+- product names
+- important labels
+
+Do NOT:
+- make every screen bright red/yellow
+- copy Amazon colors directly
+- use too many gradients
+- use random colors per screen
+- use glass effects on every card
+- make text unreadable on yellow/red
+
+## Visual style
+
+The app should combine:
+- iOS premium layout
+- local bazar warmth
+- modern shopping app clarity
+- subtle Liquid Glass-inspired navigation and floating controls
+
+## Logo / name
+
+Use “Nice Price Bazar” as the shop-facing brand.
+Use “DoubleA” only as the software/company/internal builder brand where needed.

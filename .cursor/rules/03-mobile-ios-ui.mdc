@@ -1,0 +1,77 @@
+# Mobile iOS UI Rules
+
+The mobile app is iOS-first using Expo React Native.
+
+## Design direction
+
+The app should feel like:
+- Nice Price Bazar
+- premium iOS shopping app
+- warm local bazar brand
+- practical and fast
+- not generic
+- not AI-generated
+
+## Liquid Glass-inspired rules
+
+Use glass only for:
+- bottom tab bar
+- search bars
+- floating action bars
+- map overlays
+- checkout summary/action areas
+- important headers
+
+Do NOT use glass for:
+- every product card
+- long text content
+- forms with many fields
+- glass inside glass
+- low contrast text
+
+## Product cards
+
+Product cards should be solid, readable, and fast.
+They can use:
+- cream/white surfaces
+- red/yellow accent badges
+- clean price display
+- small shadow
+- rounded corners
+
+They should not be over-blurred.
+
+## Navigation
+
+- Floating tab bar must not cover content.
+- Respect safe areas.
+- Avoid buttons near the iPhone home indicator.
+- Keep active tab clear.
+- Admin users should not enter the mobile app.
+
+## Forms
+
+- Keyboard must not cover inputs.
+- Inputs must have clear labels.
+- Validation errors must be readable.
+- Checkout must be simple.
+
+## Accessibility
+
+- Tap targets must be large enough.
+- Important buttons need readable labels.
+- Do not rely only on color.
+- Keep contrast high on red/yellow backgrounds.
+- Avoid excessive motion.
+
+## Visual polish
+
+Use subtle:
+- haptics
+- animation
+- shadows
+- rounded corners
+- empty states
+- loading states
+
+Do not overanimate.
