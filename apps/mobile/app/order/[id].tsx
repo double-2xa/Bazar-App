@@ -1,6 +1,8 @@
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { ordersApi } from '@/services/endpoints';
 import { AppButton, Badge } from '@/components';
@@ -9,11 +11,18 @@ export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
 
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['order', id],
     queryFn: () => ordersApi.getById(id!),
     enabled: !!id,
+    staleTime: 0,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (id) refetch();
+    }, [id, refetch]),
+  );
 
   const cancelMutation = useMutation({
     mutationFn: () => ordersApi.cancel(id!),
@@ -28,10 +37,21 @@ export default function OrderDetailsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+    >
       <View style={styles.header}>
         <Text style={styles.orderNumber}>{order.orderNumber}</Text>
-        <Badge label={order.status.replace(/_/g, ' ')} variant={order.status === 'delivered' ? 'success' : 'warning'} />
+        <Badge
+          label={order.status.replace(/_/g, ' ')}
+          variant={
+            order.status === 'delivered' ? 'success'
+              : order.status === 'cancelled' ? 'danger'
+                : order.status === 'pending' ? 'warning'
+                  : 'info'
+          }
+        />
       </View>
 
       <View style={styles.card}>

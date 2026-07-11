@@ -187,10 +187,10 @@ async function main() {
   }
 
   const address = await prisma.address.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000001' },
+    where: { id: '11111111-1111-4111-8111-111111111101' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '11111111-1111-4111-8111-111111111101',
       userId: normalUser.id,
       label: 'Home',
       fullName: 'John Customer',
@@ -207,10 +207,10 @@ async function main() {
   });
 
   await prisma.address.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000002' },
+    where: { id: '11111111-1111-4111-8111-111111111102' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000002',
+      id: '11111111-1111-4111-8111-111111111102',
       userId: companyUser.id,
       label: 'Office',
       fullName: 'Sarah Business',

@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DEFAULT_DELIVERY_FEE, DEFAULT_TAX_RATE } from '@doublea/shared';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { cartApi, addressesApi, ordersApi } from '@/services/endpoints';
+import { getErrorMessage } from '@/services/getErrorMessage';
 import { AppButton, AppInput } from '@/components';
 
 export default function CheckoutScreen() {
+  const queryClient = useQueryClient();
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState('');
   const [note, setNote] = useState('');
@@ -45,10 +47,17 @@ export default function CheckoutScreen() {
           selectedPriceType: item.selectedPriceType,
         })),
       });
-      router.replace({ pathname: '/order-confirmation', params: { orderNumber: order.orderNumber, total: order.totalAmount.toString() } });
+      await queryClient.invalidateQueries({ queryKey: ['cart'] });
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+      router.replace({
+        pathname: '/order-confirmation',
+        params: {
+          orderNumber: order.orderNumber,
+          total: String(order.totalAmount ?? 0),
+        },
+      });
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to place order';
-      Alert.alert('Error', message);
+      Alert.alert('Error', getErrorMessage(err, 'Failed to place order'));
     } finally {
       setLoading(false);
     }

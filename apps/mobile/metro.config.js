@@ -7,14 +7,11 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(projectRoot);
 
-// Pin React to a single copy — prevents duplicate React on web
-const reactPath = path.resolve(workspaceRoot, 'node_modules/react');
-const reactDomPath = path.resolve(workspaceRoot, 'node_modules/react-dom');
-
-config.resolver.extraNodeModules = {
-  react: reactPath,
-  'react-dom': reactDomPath,
-};
+config.watchFolders = [workspaceRoot];
+config.resolver.nodeModulesPaths = [
+  path.resolve(projectRoot, 'node_modules'),
+  path.resolve(workspaceRoot, 'node_modules'),
+];
 
 const webNativeOnlyModules = ['react-native-maps'];
 
