@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { productsApi } from '@/services/endpoints';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
+import { useWishlist } from '@/hooks/useWishlist';
 import {
   AppButton,
   PriceDisplay,
@@ -31,6 +32,7 @@ export default function ProductDetailsScreen() {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const { user, showCompanyPrice, setShowCompanyPrice, isAuthenticated, addToGuestCart } = useAuthStore();
+  const { isWishlisted, toggleWishlist } = useWishlist();
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', id],
@@ -48,6 +50,7 @@ export default function ProductDetailsScreen() {
   const useCompanyPrice = isCompany && showCompanyPrice;
   const price = useCompanyPrice ? product?.companyPrice : product?.normalPrice;
   const originalPrice = useCompanyPrice ? product?.normalPrice : undefined;
+  const wishlisted = product ? isWishlisted(product.id) : false;
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -76,11 +79,24 @@ export default function ProductDetailsScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-        {images.map((uri, i) => (
-          <Image key={i} source={{ uri }} style={styles.heroImage} resizeMode="cover" />
-        ))}
-      </ScrollView>
+      <View>
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+          {images.map((uri, i) => (
+            <Image key={i} source={{ uri }} style={styles.heroImage} resizeMode="cover" />
+          ))}
+        </ScrollView>
+        <TouchableOpacity
+          style={styles.wishlistBtn}
+          onPress={() => toggleWishlist(product.id, product)}
+          hitSlop={8}
+        >
+          <Ionicons
+            name={wishlisted ? 'heart' : 'heart-outline'}
+            size={22}
+            color={wishlisted ? colors.danger : colors.mutedText}
+          />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.content}>
         {product.brand && <Text style={styles.brand}>{product.brand}</Text>}
@@ -162,6 +178,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loading: { padding: spacing.md },
   heroImage: { width, height: 320, backgroundColor: colors.border },
+  wishlistBtn: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.full,
+    padding: 10,
+    ...shadows.sm,
+  },
   content: { padding: spacing.md },
   brand: { ...typography.caption, color: colors.mutedText, textTransform: 'uppercase', letterSpacing: 1 },
   title: { ...typography.h2, color: colors.text, marginTop: spacing.xs },

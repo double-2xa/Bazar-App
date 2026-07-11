@@ -21,6 +21,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: borderRadius.sm,
     alignSelf: 'flex-start',
+    margin: 2,
   },
   primary: { backgroundColor: colors.primaryLight + '33' },
   success: { backgroundColor: colors.success + '22' },

@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Image,
   FlatList,
@@ -126,7 +125,6 @@ export default function HomeScreen() {
               <ProductCard
                 product={item}
                 onPress={() => router.push(`/product/${item.id}`)}
-                onAddToCart={() => {}}
               />
             </View>
           )}
@@ -141,7 +139,6 @@ export default function HomeScreen() {
               key={product.id}
               product={product}
               onPress={() => router.push(`/product/${product.id}`)}
-              onAddToCart={() => {}}
             />
           ))}
         </View>
