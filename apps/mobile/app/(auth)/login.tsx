@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert, Linking } from 'react-native
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { loginSchema } from '@doublea/shared';
+import { loginSchema, BRAND } from '@doublea/shared';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
@@ -57,7 +57,7 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to your DoubleA account</Text>
+        <Text style={styles.subtitle}>Sign in to {BRAND.shopName}</Text>
 
         <Controller
           control={control}

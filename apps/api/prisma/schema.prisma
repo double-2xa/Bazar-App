@@ -29,6 +29,7 @@ enum OrderStatus {
   pending
   confirmed
   assigned
+  accepted
   picked_up
   on_the_way
   delivered

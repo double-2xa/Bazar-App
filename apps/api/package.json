@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prebuild": "npm run build --workspace=@doublea/shared",
     "build": "nest build",
+    "prestart": "npm run build --workspace=@doublea/shared",
     "start": "nest start",
-    "start:dev": "nest start --watch",
+    "prestart:dev": "npm run build --workspace=@doublea/shared",
+    "start:dev": "nest start --watch -p tsconfig.build.json",
     "start:prod": "node dist/main",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

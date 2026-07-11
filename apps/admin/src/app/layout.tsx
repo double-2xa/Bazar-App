@@ -1,9 +1,10 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { BRAND } from '@doublea/shared';
 
 export const metadata: Metadata = {
-  title: 'DoubleA Commerce - Admin',
-  description: 'Admin dashboard for DoubleA Commerce',
+  title: `${BRAND.adminPanelTitle}`,
+  description: `Admin dashboard for ${BRAND.shopName}`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

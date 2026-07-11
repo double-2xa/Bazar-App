@@ -130,6 +130,38 @@ export class AdminService {
     return sanitizeUser(user);
   }
 
+  async getDeliveryAgents() {
+    const agents = await this.prisma.user.findMany({
+      where: { role: 'delivery_agent' },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+        _count: {
+          select: {
+            assignedOrders: {
+              where: { status: { in: ['assigned', 'accepted', 'picked_up', 'on_the_way'] } },
+            },
+          },
+        },
+      },
+      orderBy: { fullName: 'asc' },
+    });
+
+    return agents.map((agent) => ({
+      id: agent.id,
+      email: agent.email,
+      fullName: agent.fullName,
+      phone: agent.phone,
+      isActive: agent.isActive,
+      createdAt: agent.createdAt,
+      activeOrderCount: agent._count.assignedOrders,
+    }));
+  }
+
   async getAllReviews() {
     return this.prisma.review.findMany({
       include: {

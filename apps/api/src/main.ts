@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { BRAND } from '@doublea/shared';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -18,6 +19,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   const port = process.env.API_PORT || 3001;
   await app.listen(port);
-  console.log(`DoubleA Commerce API running on http://localhost:${port}/api`);
+  console.log(`${BRAND.shopName} API running on http://localhost:${port}/api`);
 }
 bootstrap();

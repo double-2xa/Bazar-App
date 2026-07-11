@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { OrdersService } from '../orders/orders.service';
 import { CreateDeliveryAgentDto } from './dto/admin.dto';
@@ -33,12 +33,12 @@ export class AdminController {
   }
 
   @Patch('users/:id/activate')
-  activateUser(@Param('id') id: string) {
+  activateUser(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.activateUser(id);
   }
 
   @Patch('users/:id/deactivate')
-  deactivateUser(@Param('id') id: string) {
+  deactivateUser(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.deactivateUser(id);
   }
 
@@ -48,18 +48,23 @@ export class AdminController {
   }
 
   @Patch('company-accounts/:id/approve')
-  approveCompany(@Param('id') id: string) {
+  approveCompany(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.approveCompany(id);
   }
 
   @Patch('company-accounts/:id/reject')
-  rejectCompany(@Param('id') id: string) {
+  rejectCompany(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.rejectCompany(id);
   }
 
   @Post('delivery-agents')
   createDeliveryAgent(@Body() dto: CreateDeliveryAgentDto) {
     return this.adminService.createDeliveryAgent(dto);
+  }
+
+  @Get('delivery-agents')
+  getDeliveryAgents() {
+    return this.adminService.getDeliveryAgents();
   }
 
   @Get('orders')
@@ -75,22 +80,40 @@ export class AdminController {
     });
   }
 
+  @Get('orders/:id')
+  getOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('sub') adminId: string,
+  ) {
+    return this.ordersService.getOrder(adminId, 'admin', id);
+  }
+
   @Patch('orders/:id/status')
   updateOrderStatus(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderStatusDto,
     @CurrentUser('sub') adminId: string,
   ) {
-    return this.ordersService.updateStatus(id, dto.status, adminId, dto.note);
+    return this.ordersService.updateStatus(id, dto.status, adminId, dto.note, {
+      validateAdmin: true,
+    });
   }
 
   @Patch('orders/:id/assign-delivery-agent')
   assignDeliveryAgent(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignDeliveryAgentDto,
     @CurrentUser('sub') adminId: string,
   ) {
     return this.ordersService.assignDeliveryAgent(id, dto.deliveryAgentId, adminId);
+  }
+
+  @Patch('orders/:id/unassign-delivery-agent')
+  unassignDeliveryAgent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('sub') adminId: string,
+  ) {
+    return this.ordersService.unassignDeliveryAgent(id, adminId);
   }
 
   @Get('reviews')

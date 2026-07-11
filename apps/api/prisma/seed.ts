@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { BRAND } from '@doublea/shared';
 
 const prisma = new PrismaClient();
 
@@ -12,7 +13,7 @@ const PRODUCT_IMAGES = [
 ];
 
 async function main() {
-  console.log('Seeding DoubleA Commerce database...');
+  console.log(`Seeding ${BRAND.shopName} database...`);
 
   const passwordHash = await bcrypt.hash('Admin123!', 12);
   const userHash = await bcrypt.hash('User123!', 12);
@@ -339,6 +340,75 @@ async function main() {
           deliveredToName: 'John Customer',
           deliveryNote: 'Left at front door',
         },
+      },
+    },
+  });
+
+  await prisma.order.upsert({
+    where: { orderNumber: 'DA-SEED-003' },
+    update: {},
+    create: {
+      orderNumber: 'DA-SEED-003',
+      userId: normalUser.id,
+      addressId: address.id,
+      status: 'pending',
+      paymentMethod: 'cash_on_delivery',
+      paymentStatus: 'unpaid',
+      subtotal: 59.99,
+      deliveryFee: 5.99,
+      discountAmount: 0,
+      taxAmount: 4.8,
+      totalAmount: 70.78,
+      items: {
+        create: [
+          {
+            productId: products[10].id,
+            productName: products[10].name,
+            quantity: 1,
+            unitPrice: 59.99,
+            selectedPriceType: 'normal',
+            totalPrice: 59.99,
+          },
+        ],
+      },
+      statusHistory: {
+        create: [{ status: 'pending', note: 'Order placed — awaiting admin review' }],
+      },
+    },
+  });
+
+  await prisma.order.upsert({
+    where: { orderNumber: 'DA-SEED-004' },
+    update: {},
+    create: {
+      orderNumber: 'DA-SEED-004',
+      userId: normalUser.id,
+      addressId: address.id,
+      status: 'confirmed',
+      paymentMethod: 'cash_on_delivery',
+      paymentStatus: 'unpaid',
+      subtotal: 34.99,
+      deliveryFee: 5.99,
+      discountAmount: 0,
+      taxAmount: 2.8,
+      totalAmount: 43.78,
+      items: {
+        create: [
+          {
+            productId: products[12].id,
+            productName: products[12].name,
+            quantity: 1,
+            unitPrice: 34.99,
+            selectedPriceType: 'normal',
+            totalPrice: 34.99,
+          },
+        ],
+      },
+      statusHistory: {
+        create: [
+          { status: 'pending', note: 'Order placed' },
+          { status: 'confirmed', note: 'Confirmed — ready for driver assignment' },
+        ],
       },
     },
   });

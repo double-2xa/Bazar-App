@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { BRAND } from '@doublea/shared';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊' },
@@ -33,10 +34,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside style={{ width: 260, background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)', padding: '24px 0', flexShrink: 0 }}>
         <div style={{ padding: '0 20px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, background: 'var(--primary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--secondary)', fontSize: 14 }}>AA</div>
+            <div style={{ width: 36, height: 36, background: 'var(--brand-yellow)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--deep-red)', fontSize: 13 }}>NP</div>
             <div>
-              <div style={{ fontWeight: 700, color: 'white', fontSize: 15 }}>DoubleA</div>
-              <div style={{ fontSize: 11, opacity: 0.6 }}>Admin Panel</div>
+              <div style={{ fontWeight: 700, color: 'white', fontSize: 15 }}>{BRAND.shopName}</div>
+              <div style={{ fontSize: 11, opacity: 0.75 }}>Admin Panel</div>
             </div>
           </div>
         </div>
@@ -54,8 +55,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 marginBottom: 4,
                 fontSize: 14,
                 fontWeight: pathname === item.href ? 600 : 400,
-                background: pathname === item.href ? 'rgba(255,153,0,0.15)' : 'transparent',
-                color: pathname === item.href ? 'var(--primary)' : 'var(--sidebar-text)',
+                background: pathname === item.href ? 'rgba(255, 210, 30, 0.18)' : 'transparent',
+                color: pathname === item.href ? 'var(--brand-yellow)' : 'var(--sidebar-text)',
               }}
             >
               <span>{item.icon}</span>

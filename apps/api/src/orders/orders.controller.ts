@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -26,13 +26,16 @@ export class OrdersController {
   getOrder(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') role: string,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.ordersService.getOrder(userId, role, id);
   }
 
   @Patch(':id/cancel')
-  cancel(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+  cancel(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.ordersService.cancelOrder(userId, id);
   }
 }

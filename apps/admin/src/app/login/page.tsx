@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BRAND } from '@doublea/shared';
 import api from '@/services/api';
 
 export default function AdminLoginPage() {
@@ -32,12 +33,12 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--secondary)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--deep-red)' }}>
       <div className="card" style={{ width: 400, padding: 32 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, background: 'var(--primary)', borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 20, color: 'var(--secondary)', marginBottom: 12 }}>AA</div>
-          <h1 style={{ fontSize: 24, fontWeight: 700 }}>DoubleA Admin</h1>
-          <p style={{ color: 'var(--muted)', marginTop: 4 }}>Sign in to manage your store</p>
+          <div style={{ width: 56, height: 56, background: 'var(--brand-yellow)', borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18, color: 'var(--deep-red)', marginBottom: 12 }}>NP</div>
+          <h1 style={{ fontSize: 24, fontWeight: 700 }}>{BRAND.adminPanelTitle}</h1>
+          <p style={{ color: 'var(--muted)', marginTop: 4 }}>Manage {BRAND.shopName}</p>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">

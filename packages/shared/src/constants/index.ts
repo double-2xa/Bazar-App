@@ -1,13 +1,110 @@
 export const USER_ROLES = ['normal_user', 'company', 'admin', 'delivery_agent'] as const;
 
+export const BRAND = {
+  shopName: 'Nice Price Bazar',
+  internalName: 'DoubleA',
+  tagline: 'Affordable. Local. Practical.',
+  adminPanelTitle: 'Nice Price Bazar Admin',
+} as const;
+
+export const BRAND_COLORS = {
+  brandRed: '#C8102E',
+  brandYellow: '#FFD21E',
+  deepRed: '#7A1020',
+  warmCream: '#FFF8E7',
+  charcoal: '#1F1F1F',
+  mutedBrown: '#6B4A2D',
+  successGreen: '#2E9D58',
+  warningOrange: '#F59E0B',
+} as const;
+
 export const ORDER_STATUSES = [
   'pending',
   'confirmed',
   'assigned',
+  'accepted',
   'picked_up',
   'on_the_way',
   'delivered',
   'cancelled',
+] as const;
+
+/** Admin manual status changes — cannot skip delivery flow or jump to delivered */
+export const ADMIN_ORDER_TRANSITIONS: Record<string, readonly string[]> = {
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['cancelled'],
+  assigned: [],
+  accepted: [],
+  picked_up: [],
+  on_the_way: [],
+  delivered: [],
+  cancelled: [],
+};
+
+/** Customer-facing delivery progress steps (excludes cancelled) */
+export const ORDER_TRACKING_STEPS = [
+  'pending',
+  'confirmed',
+  'assigned',
+  'accepted',
+  'picked_up',
+  'on_the_way',
+  'delivered',
+] as const;
+
+/** Human-readable labels for order statuses */
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  assigned: 'Assigned',
+  accepted: 'Accepted',
+  picked_up: 'Picked up',
+  on_the_way: 'On the way',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+/** Customer-facing order status labels (shopper app) */
+export const CUSTOMER_ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: 'Order placed',
+  confirmed: 'Preparing your order',
+  assigned: 'Assigned to delivery',
+  accepted: 'Accepted by driver',
+  picked_up: 'Picked up',
+  on_the_way: 'On the way',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+/** Shorter labels for customer progress stepper */
+export const CUSTOMER_ORDER_STEP_LABELS: Record<string, string> = {
+  pending: 'Placed',
+  confirmed: 'Preparing',
+  assigned: 'Assigned',
+  accepted: 'Driver accepted',
+  picked_up: 'Picked up',
+  on_the_way: 'On the way',
+  delivered: 'Delivered',
+};
+
+export const CUSTOMER_PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash_on_delivery: 'Cash on delivery',
+  card: 'Card',
+};
+
+export const CUSTOMER_PAYMENT_STATUS_LABELS: Record<string, string> = {
+  unpaid: 'Unpaid',
+  paid: 'Paid',
+  refunded: 'Refunded',
+};
+
+/** Active delivery statuses grouped for driver dashboard */
+export const DRIVER_ORDER_GROUPS = [
+  'assigned',
+  'accepted',
+  'picked_up',
+  'on_the_way',
+  'delivered',
 ] as const;
 
 export const PAYMENT_METHODS = ['cash_on_delivery', 'card'] as const;

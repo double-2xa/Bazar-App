@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "DoubleA Commerce",
-    "slug": "doublea-commerce",
+    "name": "Nice Price Bazar",
+    "slug": "nice-price-bazar",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "doublea",
+    "scheme": "nicepricebazar",
     "userInterfaceStyle": "light",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#232F3E"
+      "backgroundColor": "#FFF8E7"
     },
     "web": {
       "bundler": "metro"
@@ -16,13 +16,13 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.doublea.commerce"
+      "bundleIdentifier": "com.nicepricebazar.app"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#232F3E"
+        "backgroundColor": "#C8102E"
       },
-      "package": "com.doublea.commerce"
+      "package": "com.nicepricebazar.app"
     },
     "plugins": ["expo-router", "expo-secure-store"],
     "experiments": {

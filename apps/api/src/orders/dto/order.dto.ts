@@ -7,9 +7,11 @@ import {
   ValidateNested,
   IsInt,
   Min,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod, PriceType } from '@prisma/client';
+import { ORDER_STATUSES } from '@doublea/shared';
 
 class OrderItemInput {
   @IsUUID()
@@ -47,7 +49,7 @@ export class CreateOrderDto {
 }
 
 export class UpdateOrderStatusDto {
-  @IsString()
+  @IsIn([...ORDER_STATUSES])
   status!: string;
 
   @IsOptional()

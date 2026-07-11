@@ -3,6 +3,7 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { productsApi } from '@/services/endpoints';
+import { BRAND } from '@doublea/shared';
 import { ProductCard, ProductCardSkeleton, EmptyState, GlassSearchBar, ScreenContainer } from '@/components';
 import { useDebounce } from '@/hooks/useDebounce';
 import { colors, spacing, radius, typography } from '@/theme';
@@ -35,7 +36,7 @@ export default function SearchScreen() {
     <ScreenContainer scroll={false} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Search</Text>
-        <Text style={styles.subtitle}>Find products across DoubleA</Text>
+        <Text style={styles.subtitle}>Find products at {BRAND.shopName}</Text>
       </View>
 
       <GlassSearchBar

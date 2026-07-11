@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BRAND } from '@doublea/shared';
 import { colors, spacing, typography } from '@/theme';
 import { AppButton } from '@/components';
 
@@ -15,7 +16,7 @@ export default function OrderConfirmationScreen() {
           <Ionicons name="checkmark-circle" size={80} color={colors.success} />
         </View>
         <Text style={styles.title}>Order Placed!</Text>
-        <Text style={styles.subtitle}>Thank you for shopping with DoubleA Commerce</Text>
+        <Text style={styles.subtitle}>Thank you for shopping with {BRAND.shopName}</Text>
         <View style={styles.details}>
           <Text style={styles.label}>Order Number</Text>
           <Text style={styles.value}>{orderNumber}</Text>

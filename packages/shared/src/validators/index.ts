@@ -99,6 +99,10 @@ export const deliveryProofSchema = z.object({
   longitude: z.number().optional(),
 });
 
+export const deliveryRejectSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type RegisterCompanyInput = z.infer<typeof registerCompanySchema>;
@@ -109,3 +113,4 @@ export type ProductInput = z.infer<typeof productSchema>;
 export type CategoryInput = z.infer<typeof categorySchema>;
 export type CouponInput = z.infer<typeof couponSchema>;
 export type DeliveryProofInput = z.infer<typeof deliveryProofSchema>;
+export type DeliveryRejectInput = z.infer<typeof deliveryRejectSchema>;

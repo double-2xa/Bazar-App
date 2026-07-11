@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
+import { BRAND } from '@doublea/shared';
 import { useAuthStore } from '@/store/authStore';
 import { AppButton, EmptyState } from '@/components';
 
@@ -30,7 +31,7 @@ export default function ProfileScreen() {
           <View style={styles.avatar}>
             <Ionicons name="person" size={40} color={colors.mutedText} />
           </View>
-          <Text style={styles.guestTitle}>Welcome to DoubleA</Text>
+          <Text style={styles.guestTitle}>Welcome to {BRAND.shopName}</Text>
           <Text style={styles.guestSubtitle}>Sign in for the full experience</Text>
           <AppButton title="Sign In" onPress={() => router.push('/(auth)/login')} style={{ marginTop: spacing.lg }} />
           <AppButton

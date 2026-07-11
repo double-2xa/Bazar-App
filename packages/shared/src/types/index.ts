@@ -8,6 +8,7 @@ export type OrderStatus =
   | 'pending'
   | 'confirmed'
   | 'assigned'
+  | 'accepted'
   | 'picked_up'
   | 'on_the_way'
   | 'delivered'
@@ -115,10 +116,25 @@ export interface OrderItem {
   totalPrice: number;
 }
 
+export interface OrderStatusHistoryEntry {
+  status: OrderStatus;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface DeliveryProofPublic {
+  deliveredAt: string;
+  deliveredToName: string | null;
+  deliveryNote: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
   userId: string;
+  deliveryAgentId?: string | null;
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
@@ -133,6 +149,27 @@ export interface Order {
   items?: OrderItem[];
   address?: Address;
   user?: Pick<UserPublic, 'id' | 'fullName' | 'email' | 'phone'>;
+  deliveryAgent?: Pick<UserPublic, 'id' | 'fullName' | 'phone'>;
+  statusHistory?: OrderStatusHistoryEntry[];
+  deliveryProof?: DeliveryProofPublic | null;
+}
+
+export interface DeliveryAgentSummary {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  isActive: boolean;
+  activeOrderCount: number;
+  createdAt: string;
+}
+
+export interface DeliveryOrdersGrouped {
+  assigned: Order[];
+  accepted: Order[];
+  picked_up: Order[];
+  on_the_way: Order[];
+  delivered: Order[];
 }
 
 export interface Review {

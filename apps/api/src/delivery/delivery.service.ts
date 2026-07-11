@@ -2,11 +2,16 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
 import { decimalToNumber } from '../common/utils';
+import {
+  assertDriverAccept,
+  assertDriverDelivered,
+  assertDriverOnTheWay,
+  assertDriverPickedUp,
+} from '../common/utils/order-status';
 import { DeliveryProofDto } from './dto/delivery.dto';
 
 @Injectable()
@@ -32,6 +37,7 @@ export class DeliveryService {
 
     const grouped = {
       assigned: [] as unknown[],
+      accepted: [] as unknown[],
       picked_up: [] as unknown[],
       on_the_way: [] as unknown[],
       delivered: [] as unknown[],
@@ -54,12 +60,6 @@ export class DeliveryService {
   async getOrder(agentId: string, orderId: string) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, deliveryAgentId: agentId },
-      include: {
-        items: true,
-        address: true,
-        user: { select: { id: true, fullName: true, email: true, phone: true } },
-        statusHistory: { orderBy: { createdAt: 'desc' } },
-      },
     });
     if (!order) throw new NotFoundException('Order not found');
     return this.ordersService.getOrder(agentId, 'delivery_agent', orderId);
@@ -73,27 +73,36 @@ export class DeliveryService {
     return order;
   }
 
+  async acceptOrder(agentId: string, orderId: string) {
+    const order = await this.validateAgentOrder(agentId, orderId);
+    assertDriverAccept(order.status);
+    return this.ordersService.updateStatus(orderId, 'accepted', agentId, 'Accepted by driver');
+  }
+
+  async rejectOrder(agentId: string, orderId: string, reason?: string) {
+    await this.ordersService.rejectAssignment(orderId, agentId, reason);
+    return {
+      success: true,
+      message: 'Order rejected and returned for reassignment',
+      orderId,
+    };
+  }
+
   async markPickedUp(agentId: string, orderId: string) {
     const order = await this.validateAgentOrder(agentId, orderId);
-    if (!['assigned', 'confirmed'].includes(order.status)) {
-      throw new BadRequestException('Invalid status transition');
-    }
+    assertDriverPickedUp(order.status);
     return this.ordersService.updateStatus(orderId, 'picked_up', agentId, 'Picked up by agent');
   }
 
   async markOnTheWay(agentId: string, orderId: string) {
     const order = await this.validateAgentOrder(agentId, orderId);
-    if (order.status !== 'picked_up') {
-      throw new BadRequestException('Order must be picked up first');
-    }
+    assertDriverOnTheWay(order.status);
     return this.ordersService.updateStatus(orderId, 'on_the_way', agentId, 'On the way');
   }
 
   async markDelivered(agentId: string, orderId: string, dto: DeliveryProofDto) {
     const order = await this.validateAgentOrder(agentId, orderId);
-    if (!['picked_up', 'on_the_way'].includes(order.status)) {
-      throw new BadRequestException('Invalid status for delivery');
-    }
+    assertDriverDelivered(order.status);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.deliveryProof.create({

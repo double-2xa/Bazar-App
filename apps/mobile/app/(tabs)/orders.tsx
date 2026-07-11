@@ -1,9 +1,10 @@
-import { FlatList, StyleSheet } from 'react-native';
+import { FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Order } from '@doublea/shared';
 import { colors, spacing } from '@/theme';
 import { ordersApi } from '@/services/endpoints';
 import { useAuthStore } from '@/store/authStore';
@@ -41,16 +42,32 @@ export default function OrdersScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
-        data={orders}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        refreshing={isLoading || isRefetching}
-        onRefresh={refetch}
-        ListEmptyComponent={
-          <EmptyState icon="receipt-outline" title="No orders yet" subtitle="Your order history will appear here" />
+        data={orders as Order[] | undefined}
+        keyExtractor={(item: Order) => item.id}
+        contentContainerStyle={[styles.list, !orders?.length && styles.listEmpty]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching && !isLoading}
+            onRefresh={refetch}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
-        renderItem={({ item }) => (
-          <OrderCard order={item} onPress={() => router.push(`/order/${item.id}`)} />
+        ListEmptyComponent={
+          !isLoading ? (
+            <EmptyState
+              icon="receipt-outline"
+              title="No orders yet"
+              subtitle="Your order history will appear here. Pull down to refresh after placing an order."
+            />
+          ) : null
+        }
+        renderItem={({ item }: { item: Order }) => (
+          <OrderCard
+            order={item}
+            onPress={() => router.push(`/order/${item.id}`)}
+            showPaymentStatus
+          />
         )}
       />
     </SafeAreaView>
@@ -60,4 +77,5 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   list: { padding: spacing.md, flexGrow: 1 },
+  listEmpty: { justifyContent: 'center' },
 });

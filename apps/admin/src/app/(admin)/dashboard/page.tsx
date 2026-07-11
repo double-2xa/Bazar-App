@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BRAND } from '@doublea/shared';
 import api from '@/services/api';
 import type { DashboardStats } from '@doublea/shared';
 
@@ -26,7 +27,7 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Dashboard</h1>
-      <p style={{ color: 'var(--muted)', marginBottom: 32 }}>Welcome to DoubleA Commerce admin panel</p>
+      <p style={{ color: 'var(--muted)', marginBottom: 32 }}>Welcome to {BRAND.shopName} admin panel</p>
 
       <div className="stat-grid">
         {cards.map((card) => (

@@ -1,29 +1,49 @@
-import { View, Text, FlatList, StyleSheet } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
-import { deliveryApi } from '@/services/endpoints';
-import { OrderCard, ScreenContainer } from '@/components';
+import type { Order } from '@doublea/shared';
+import { OrderCard, ScreenContainer, EmptyState } from '@/components';
+import { useDeliveryOrders } from '@/hooks/useDeliveryOrders';
 import { colors, spacing, typography } from '@/theme';
 
 export default function DeliveryCompletedScreen() {
-  const { data } = useQuery({ queryKey: ['delivery-orders'], queryFn: deliveryApi.getOrders });
-  const orders = data?.delivered || [];
+  const { data, isLoading, isRefetching, refetch } = useDeliveryOrders();
+  const orders = (data?.delivered ?? []) as Order[];
 
   return (
     <ScreenContainer scroll={false}>
       <View style={styles.header}>
         <Text style={styles.title}>Completed deliveries</Text>
-        <Text style={styles.subtitle}>{orders.length} delivered orders</Text>
+        <Text style={styles.subtitle}>
+          {orders.length === 0 ? 'No completed deliveries yet' : `${orders.length} delivered orders`}
+        </Text>
       </View>
       <FlatList
         data={orders}
-        keyExtractor={(item: { id: string }) => item.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }: { item: { id: string } }) => (
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={[styles.list, orders.length === 0 && styles.listEmpty]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+        ListEmptyComponent={
+          !isLoading ? (
+            <EmptyState
+              icon="checkmark-done-outline"
+              title="No completed deliveries yet"
+              subtitle="Delivered orders will appear here. Pull down to refresh."
+            />
+          ) : null
+        }
+        renderItem={({ item }) => (
           <OrderCard
-            order={item as never}
+            order={item}
             onPress={() => router.push(`/delivery-order/${item.id}`)}
             showCustomer
+            useDriverStatusLabel
           />
         )}
       />
@@ -36,4 +56,5 @@ const styles = StyleSheet.create({
   title: { ...typography.h2, color: colors.text },
   subtitle: { ...typography.bodySmall, color: colors.mutedText, marginTop: 4 },
   list: { padding: spacing.md, paddingBottom: spacing.xxl + 80 },
+  listEmpty: { flexGrow: 1, justifyContent: 'center' },
 });

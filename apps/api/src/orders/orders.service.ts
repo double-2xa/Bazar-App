@@ -6,10 +6,20 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { decimalToNumber, generateOrderNumber } from '../common/utils';
+import { assertAdminStatusTransition, assertAssignFromStatus, assertRejectFromStatus, assertNotTerminal, assertUnassignFromStatus, isReassignment } from '../common/utils/order-status';
 import { CreateOrderDto } from './dto/order.dto';
 
 const DEFAULT_DELIVERY_FEE = 5.99;
 const DEFAULT_TAX_RATE = 0.08;
+
+const ORDER_DETAIL_INCLUDE = {
+  items: true,
+  address: true,
+  statusHistory: { orderBy: { createdAt: 'desc' as const } },
+  deliveryProof: true,
+  deliveryAgent: { select: { id: true, fullName: true, phone: true } },
+  user: { select: { id: true, fullName: true, email: true, phone: true } },
+};
 
 @Injectable()
 export class OrdersService {
@@ -29,6 +39,15 @@ export class OrdersService {
         totalPrice: decimalToNumber(item.totalPrice as never),
       })),
     };
+  }
+
+  private async fetchOrderDetail(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: ORDER_DETAIL_INCLUDE,
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    return this.formatOrder(order as unknown as Record<string, unknown>);
   }
 
   async create(userId: string, userRole: string, dto: CreateOrderDto) {
@@ -158,7 +177,11 @@ export class OrdersService {
   async getMyOrders(userId: string) {
     const orders = await this.prisma.order.findMany({
       where: { userId },
-      include: { items: true, address: true },
+      include: {
+        items: true,
+        address: true,
+        deliveryAgent: { select: { id: true, fullName: true, phone: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
     return orders.map((o) => this.formatOrder(o as unknown as Record<string, unknown>));
@@ -167,13 +190,7 @@ export class OrdersService {
   async getOrder(userId: string, userRole: string, orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: {
-        items: true,
-        address: true,
-        statusHistory: { orderBy: { createdAt: 'desc' } },
-        deliveryProof: true,
-        user: { select: { id: true, fullName: true, email: true, phone: true } },
-      },
+      include: ORDER_DETAIL_INCLUDE,
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -229,11 +246,16 @@ export class OrdersService {
     status: string,
     changedByUserId: string,
     note?: string,
+    options?: { validateAdmin?: boolean },
   ) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Order not found');
 
-    const updated = await this.prisma.order.update({
+    if (options?.validateAdmin) {
+      assertAdminStatusTransition(order.status, status);
+    }
+
+    await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: status as never,
@@ -241,18 +263,35 @@ export class OrdersService {
           create: { status: status as never, note, changedByUserId },
         },
       },
-      include: { items: true, address: true, user: true },
     });
-    return this.formatOrder(updated as unknown as Record<string, unknown>);
+
+    return this.fetchOrderDetail(orderId);
   }
 
   async assignDeliveryAgent(orderId: string, deliveryAgentId: string, adminId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+
+    assertNotTerminal(order.status, 'assign a delivery agent');
+    assertAssignFromStatus(order.status);
+
     const agent = await this.prisma.user.findFirst({
       where: { id: deliveryAgentId, role: 'delivery_agent', isActive: true },
     });
     if (!agent) throw new NotFoundException('Delivery agent not found');
 
-    return this.prisma.$transaction(async (tx) => {
+    const fromPending = order.status === 'pending';
+    const reassign = isReassignment(order.status);
+    let note: string;
+    if (fromPending) {
+      note = `Order confirmed and assigned to ${agent.fullName}.`;
+    } else if (reassign) {
+      note = `Reassigned to ${agent.fullName}`;
+    } else {
+      note = `Assigned to ${agent.fullName}`;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: orderId },
         data: {
@@ -261,14 +300,73 @@ export class OrdersService {
           statusHistory: {
             create: {
               status: 'assigned',
-              note: `Assigned to ${agent.fullName}`,
+              note,
               changedByUserId: adminId,
             },
           },
         },
       });
-      return this.getOrder(adminId, 'admin', orderId);
     });
+
+    return this.fetchOrderDetail(orderId);
+  }
+
+  async unassignDeliveryAgent(orderId: string, adminId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+
+    assertUnassignFromStatus(order.status);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          deliveryAgentId: null,
+          status: 'confirmed',
+          statusHistory: {
+            create: {
+              status: 'confirmed',
+              note: 'Unassigned by admin — ready for reassignment',
+              changedByUserId: adminId,
+            },
+          },
+        },
+      });
+    });
+
+    return this.fetchOrderDetail(orderId);
+  }
+
+  async rejectAssignment(orderId: string, agentId: string, reason?: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, deliveryAgentId: agentId },
+    });
+    if (!order) throw new ForbiddenException('Order not assigned to you');
+
+    assertRejectFromStatus(order.status);
+
+    const note = reason
+      ? `Rejected by driver: ${reason}`
+      : 'Rejected by driver — ready for reassignment';
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          deliveryAgentId: null,
+          status: 'confirmed',
+          statusHistory: {
+            create: {
+              status: 'confirmed',
+              note,
+              changedByUserId: agentId,
+            },
+          },
+        },
+      });
+    });
+
+    return this.fetchOrderDetail(orderId);
   }
 
   async getAllOrders(query: { page?: number; limit?: number; status?: string }) {

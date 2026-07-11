@@ -1,16 +1,20 @@
 import { Controller, Get } from "@nestjs/common";
+import { Public } from "./common/decorators/roles.decorator";
+import { BRAND } from "@doublea/shared";
 
 @Controller()
 export class AppController {
+  @Public()
   @Get()
   getRoot() {
     return {
-      message: "DoubleA Commerce API is running",
+      message: `${BRAND.shopName} API is running`,
       docs: "/api/products",
       health: "/api/health",
     };
   }
 
+  @Public()
   @Get("health")
   getHealth() {
     return {

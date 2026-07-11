@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber } from 'class-validator';
+import { IsOptional, IsString, IsNumber, MaxLength } from 'class-validator';
 
 export class DeliveryProofDto {
   @IsOptional()
@@ -16,4 +16,11 @@ export class DeliveryProofDto {
   @IsOptional()
   @IsNumber()
   longitude?: number;
+}
+
+export class DeliveryRejectDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }

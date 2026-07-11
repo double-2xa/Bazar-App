@@ -1,5 +1,18 @@
 import api from './api';
-import type { Product, Category, Order, Address, UserPublic, LoginResponse } from '@doublea/shared';
+import type {
+  Product,
+  Category,
+  Order,
+  Address,
+  UserPublic,
+  LoginResponse,
+  DeliveryOrdersGrouped,
+} from '@doublea/shared';
+
+export type DeliveryProofInput = {
+  deliveredToName?: string;
+  deliveryNote?: string;
+};
 
 export const authApi = {
   login: (email: string, password: string) =>
@@ -62,12 +75,26 @@ export const wishlistApi = {
 };
 
 export const deliveryApi = {
-  getOrders: () => api.get('/delivery/orders').then((r) => r.data),
-  getOrder: (id: string) => api.get(`/delivery/orders/${id}`).then((r) => r.data),
-  markPickedUp: (id: string) => api.patch(`/delivery/orders/${id}/picked-up`).then((r) => r.data),
-  markOnTheWay: (id: string) => api.patch(`/delivery/orders/${id}/on-the-way`).then((r) => r.data),
-  markDelivered: (id: string, data: Record<string, string>) =>
-    api.patch(`/delivery/orders/${id}/delivered`, data).then((r) => r.data),
+  getOrders: () =>
+    api.get<DeliveryOrdersGrouped>('/delivery/orders').then((r) => r.data),
+
+  getOrder: (id: string) =>
+    api.get<Order>(`/delivery/orders/${id}`).then((r) => r.data),
+
+  accept: (id: string) =>
+    api.patch<Order>(`/delivery/orders/${id}/accept`).then((r) => r.data),
+
+  reject: (id: string, data?: { reason?: string }) =>
+    api.patch(`/delivery/orders/${id}/reject`, data ?? {}).then((r) => r.data),
+
+  markPickedUp: (id: string) =>
+    api.patch<Order>(`/delivery/orders/${id}/picked-up`).then((r) => r.data),
+
+  markOnTheWay: (id: string) =>
+    api.patch<Order>(`/delivery/orders/${id}/on-the-way`).then((r) => r.data),
+
+  markDelivered: (id: string, data?: DeliveryProofInput) =>
+    api.patch<Order>(`/delivery/orders/${id}/delivered`, data ?? {}).then((r) => r.data),
 };
 
 export const reviewsApi = {

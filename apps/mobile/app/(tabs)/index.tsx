@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
+import { BRAND } from '@doublea/shared';
 import { productsApi, categoriesApi, bannersApi } from '@/services/endpoints';
 import {
   ProductCard,
@@ -64,6 +65,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
+          <Text style={styles.brandName}>{BRAND.shopName}</Text>
           <TouchableOpacity style={styles.locationRow}>
             <Ionicons name="location" size={18} color={colors.primary} />
             <View>
@@ -151,6 +153,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  brandName: { ...typography.h3, color: colors.primary, fontWeight: '800', marginBottom: spacing.xs },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   deliverTo: { ...typography.caption, color: colors.mutedText },
   location: { ...typography.bodySmall, color: colors.text, fontWeight: '600' },
