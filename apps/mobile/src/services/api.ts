@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { tokenStorage } from './tokenStorage';
+import { getApiUrl } from './getApiUrl';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = getApiUrl();
 
 export const api = axios.create({
   baseURL: API_URL,

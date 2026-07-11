@@ -1,5 +1,7 @@
 import { FlatList, StyleSheet } from 'react-native';
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/theme';
@@ -10,11 +12,18 @@ import { OrderCard, EmptyState, AppButton } from '@/components';
 export default function OrdersScreen() {
   const { isAuthenticated } = useAuthStore();
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['orders'],
     queryFn: ordersApi.getMyOrders,
     enabled: isAuthenticated,
+    staleTime: 0,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) refetch();
+    }, [isAuthenticated, refetch]),
+  );
 
   if (!isAuthenticated) {
     return (
@@ -35,7 +44,8 @@ export default function OrdersScreen() {
         data={orders}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshing={isLoading}
+        refreshing={isLoading || isRefetching}
+        onRefresh={refetch}
         ListEmptyComponent={
           <EmptyState icon="receipt-outline" title="No orders yet" subtitle="Your order history will appear here" />
         }

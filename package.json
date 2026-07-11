@@ -18,7 +18,7 @@
     "docker:down": "docker-compose down"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "react": "19.1.0",
@@ -26,7 +26,6 @@
   },
   "overrides": {
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-native": "0.81.5"
+    "react-dom": "19.1.0"
   }
 }

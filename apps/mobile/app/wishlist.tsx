@@ -1,45 +1,27 @@
-import { FlatList, StyleSheet, Alert } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { wishlistApi } from '@/services/endpoints';
-import { ProductCard, EmptyState, ScreenContainer } from '@/components';
-import { useAuthStore } from '@/store/authStore';
-import type { Product } from '@doublea/shared';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/theme';
-import { useEffect } from 'react';
+import { useWishlist } from '@/hooks/useWishlist';
+import { ProductCard, EmptyState, ProductCardSkeleton } from '@/components';
 
 export default function WishlistScreen() {
-  const { isAuthenticated } = useAuthStore();
-  const queryClient = useQueryClient();
+  const { products, isLoading } = useWishlist();
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace('/(auth)/login');
-    }
-  }, [isAuthenticated]);
-
-  const { data } = useQuery({
-    queryKey: ['wishlist'],
-    queryFn: wishlistApi.getAll,
-    enabled: isAuthenticated,
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (productId: string) => wishlistApi.remove(productId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
-  });
-
-  const products = data?.map((w: { product: Product }) => w.product) || [];
-
-  const handleRemove = (productId: string) => {
-    Alert.alert('Remove from wishlist', 'Remove this product from your wishlist?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => removeMutation.mutate(productId) },
-    ]);
-  };
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingGrid}>
+          {[1, 2, 3, 4].map((i) => (
+            <ProductCardSkeleton key={i} />
+          ))}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScreenContainer scroll={false}>
+    <SafeAreaView style={styles.container}>
       <FlatList
         data={products}
         keyExtractor={(item) => item.id}
@@ -47,22 +29,24 @@ export default function WishlistScreen() {
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <EmptyState icon="heart-outline" title="Wishlist empty" subtitle="Save products you love for later" />
+          <EmptyState icon="heart-outline" title="Wishlist empty" subtitle="Save products you love" />
         }
         renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            onPress={() => router.push(`/product/${item.id}`)}
-            isWishlisted
-            onToggleWishlist={() => handleRemove(item.id)}
-          />
+          <ProductCard product={item} onPress={() => router.push(`/product/${item.id}`)} />
         )}
       />
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   row: { justifyContent: 'space-between', paddingHorizontal: spacing.md },
   list: { paddingBottom: spacing.xl, flexGrow: 1 },
+  loadingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: spacing.md,
+    justifyContent: 'space-between',
+  },
 });

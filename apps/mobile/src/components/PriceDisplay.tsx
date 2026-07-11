@@ -15,9 +15,9 @@ export function PriceDisplay({ price, originalPrice, size = 'md', showCompanyBad
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.price, sizeStyles[size]]}>${price.toFixed(2)}</Text>
+      <Text style={[styles.price, sizeStyles[size]]}>${price}</Text>
       {hasDiscount && (
-        <Text style={[styles.original, sizeStyles[size]]}>${originalPrice!.toFixed(2)}</Text>
+        <Text style={[styles.original, sizeStyles[size]]}>${originalPrice!}</Text>
       )}
       {showCompanyBadge && <Text style={styles.companyLabel}>Company Price</Text>}
     </View>
