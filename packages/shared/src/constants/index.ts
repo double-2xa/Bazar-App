@@ -64,6 +64,47 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
+/** Admin / shop-floor labels (operations board language) */
+export const ADMIN_ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: 'To prepare',
+  confirmed: 'Ready for driver',
+  assigned: 'Assigned',
+  accepted: 'Accepted by driver',
+  picked_up: 'Picked up',
+  on_the_way: 'Out for delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+export const ADMIN_PAYMENT_STATUS_LABELS: Record<string, string> = {
+  unpaid: 'Cash pending',
+  paid: 'Paid',
+  refunded: 'Refunded',
+};
+
+export const ADMIN_OPS_LABELS = {
+  needsDriver: 'Needs driver',
+  toPrepare: 'To prepare',
+  outForDelivery: 'Out for delivery',
+  cashToCollect: 'Cash to collect',
+  waitingApproval: 'Waiting approval',
+  lowStock: 'Low stock',
+} as const;
+
+/** TODO: make configurable via settings API later */
+export const LOW_STOCK_THRESHOLD = 5;
+
+/** Lebanon — admin dashboard map & timezone */
+export const LEBANON_MAP = {
+  centerLat: 33.8547,
+  centerLng: 35.8623,
+  defaultZoom: 8,
+  /** SW / NE bounds for maxBounds */
+  boundsSouthWest: [33.0, 35.0] as const,
+  boundsNorthEast: [34.7, 36.6] as const,
+  timezone: 'Asia/Beirut',
+} as const;
+
 /** Customer-facing order status labels (shopper app) */
 export const CUSTOMER_ORDER_STATUS_LABELS: Record<string, string> = {
   pending: 'Order placed',

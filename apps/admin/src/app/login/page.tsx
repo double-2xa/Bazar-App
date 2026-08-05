@@ -54,9 +54,11 @@ export default function AdminLoginPage() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: 'var(--muted)' }}>
-          Demo: admin@doublea.com / Admin123!
-        </p>
+        {process.env.NODE_ENV !== 'production' && (
+          <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: 'var(--muted)' }}>
+            Demo: admin@doublea.com / Admin123!
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Order } from '@doublea/shared';
 import { ADMIN_ORDER_TRANSITIONS } from '@doublea/shared';
 import { adminOrdersApi } from '@/services/orders';
@@ -21,17 +22,50 @@ const DELIVERY_FILTERS: { value: DeliveryFilter; label: string }[] = [
   { value: 'delivered', label: 'Delivered' },
 ];
 
+const VALID_DELIVERY_FILTERS = new Set<DeliveryFilter>(
+  DELIVERY_FILTERS.map((f) => f.value),
+);
+
+function parseDeliveryFilter(raw: string | null): DeliveryFilter {
+  if (!raw) return 'all';
+  const normalized = raw === 'in-delivery' ? 'in_delivery' : raw;
+  return VALID_DELIVERY_FILTERS.has(normalized as DeliveryFilter)
+    ? (normalized as DeliveryFilter)
+    : 'all';
+}
+
 function allowedStatuses(current: string): string[] {
   const next = ADMIN_ORDER_TRANSITIONS[current] ?? [];
   return [current, ...next];
 }
 
-export default function OrdersPage() {
+function OrdersPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>('all');
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>(() =>
+    parseDeliveryFilter(searchParams.get('deliveryFilter')),
+  );
+  const statusFilter = searchParams.get('status');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDeliveryFilter(parseDeliveryFilter(searchParams.get('deliveryFilter')));
+  }, [searchParams]);
+
+  const setFilter = (value: DeliveryFilter) => {
+    setDeliveryFilter(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === 'all') {
+      params.delete('deliveryFilter');
+    } else {
+      params.set('deliveryFilter', value);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/orders?${qs}` : '/orders');
+  };
 
   const load = useCallback(() => {
     setError('');
@@ -52,8 +86,13 @@ export default function OrdersPage() {
   }, [load]);
 
   const filteredOrders = useMemo(
-    () => orders.filter((order) => matchesDeliveryFilter(order, deliveryFilter)),
-    [orders, deliveryFilter],
+    () =>
+      orders.filter((order) => {
+        if (!matchesDeliveryFilter(order, deliveryFilter)) return false;
+        if (statusFilter && order.status !== statusFilter) return false;
+        return true;
+      }),
+    [orders, deliveryFilter, statusFilter],
   );
 
   const unassignedCount = useMemo(
@@ -102,7 +141,7 @@ export default function OrdersPage() {
             type="button"
             className={deliveryFilter === f.value ? 'btn btn-primary' : 'btn btn-outline'}
             style={{ fontSize: 13, padding: '8px 14px' }}
-            onClick={() => setDeliveryFilter(f.value)}
+            onClick={() => setFilter(f.value)}
           >
             {f.label}
           </button>
@@ -192,5 +231,13 @@ export default function OrdersPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<p style={{ padding: 24, color: 'var(--muted)' }}>Loading orders...</p>}>
+      <OrdersPageContent />
+    </Suspense>
   );
 }

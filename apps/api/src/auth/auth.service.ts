@@ -50,7 +50,8 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+    // deleteMany is idempotent — concurrent refresh calls can race on rotation
+    await this.prisma.refreshToken.deleteMany({ where: { id: stored.id } });
     return this.generateTokens(stored.user.id, stored.user.email, stored.user.role);
   }
 

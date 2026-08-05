@@ -194,14 +194,167 @@ export interface Coupon {
   expiresAt: string;
 }
 
-export interface DashboardStats {
+export interface DashboardOrderNeedingAction {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  totalAmount: number;
+  createdAt: string;
+  customerName: string | null;
+}
+
+export interface DashboardBusyAgent {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  activeOrderCount: number;
+  isActive: boolean;
+}
+
+export interface DashboardPendingCompany {
+  id: string;
+  companyName: string;
+  contactPerson: string;
+  contactName?: string;
+  createdAt: string;
+  status?: string;
+}
+
+export interface DashboardSummary {
   totalOrders: number;
   totalRevenue: number;
-  pendingOrders: number;
-  completedOrders: number;
   totalUsers: number;
-  totalCompanyAccounts: number;
   totalProducts: number;
+  totalCompanies: number;
+  totalDrivers: number;
+  todayOrders: number;
+  todayRevenue: number;
+  deliveredTodayCount: number;
+  pendingOrdersCount: number;
+  confirmedOrdersCount: number;
+  unassignedOrdersCount: number;
+  inDeliveryOrdersCount: number;
+  codUnpaidAmount: number;
+  pendingCompanyApprovalsCount: number;
+  lowStockProductsCount: number;
+  activeDeliveryAgentsCount: number;
+  completedOrders: number;
+}
+
+export interface DashboardSalesTrendDay {
+  date: string;
+  ordersCount: number;
+  revenue: number;
+  deliveredCount: number;
+  codAmount: number;
+}
+
+export interface DashboardOrderStatusBreakdown {
+  pending: number;
+  confirmed: number;
+  assigned: number;
+  accepted: number;
+  picked_up: number;
+  on_the_way: number;
+  delivered: number;
+  cancelled: number;
+}
+
+export interface DashboardDeliveryPipeline {
+  toPrepare: number;
+  readyForDriver: number;
+  assigned: number;
+  accepted: number;
+  pickedUp: number;
+  outForDelivery: number;
+  deliveredToday: number;
+}
+
+export interface DashboardMapOrder {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  totalAmount: number;
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
+  latitude: number;
+  longitude: number;
+  customerName: string | null;
+  customerPhone: string | null;
+  addressLabel: string | null;
+  addressCity: string | null;
+  deliveryAgentName: string | null;
+  createdAt: string;
+}
+
+export interface DashboardRecentOrder {
+  id: string;
+  orderNumber: string;
+  customerName: string | null;
+  status: OrderStatus;
+  totalAmount: number;
+  paymentStatus: PaymentStatus;
+  createdAt: string;
+  deliveryAgentName: string | null;
+}
+
+export interface DashboardTopProduct {
+  productId: string;
+  name: string;
+  quantitySold: number;
+  revenue: number;
+  stockQuantity: number;
+}
+
+export interface DashboardAttentionItems {
+  needsDriver: number;
+  toPrepare: number;
+  lowStock: number;
+  pendingCompanies: number;
+  cashToCollect: number;
+}
+
+export interface DashboardLowStockProduct {
+  id: string;
+  name: string;
+  sku?: string;
+  stockQuantity: number;
+  categoryName?: string | null;
+}
+
+export interface DashboardOrdersByCity {
+  city: string;
+  count: number;
+}
+
+/** V3 admin dashboard payload */
+export interface DashboardData {
+  summary: DashboardSummary;
+  salesTrend: {
+    days7: DashboardSalesTrendDay[];
+    days30: DashboardSalesTrendDay[];
+  };
+  orderStatusBreakdown: DashboardOrderStatusBreakdown;
+  deliveryPipeline: DashboardDeliveryPipeline;
+  mapOrders: DashboardMapOrder[];
+  mapOrdersWithoutCoordinates: number;
+  recentOrders: DashboardRecentOrder[];
+  topProducts: DashboardTopProduct[];
+  busyDrivers: DashboardBusyAgent[];
+  pendingCompanies: DashboardPendingCompany[];
+  lowStockProducts: DashboardLowStockProduct[];
+  attentionItems: DashboardAttentionItems;
+  ordersByCity: DashboardOrdersByCity[];
+}
+
+/** @deprecated Use DashboardData — kept for gradual migration */
+export interface DashboardStats extends DashboardSummary {
+  pendingOrders: number;
+  totalCompanyAccounts: number;
+  ordersToPrepareCount: number;
+  ordersReadyForDriverCount: number;
+  recentOrdersNeedingAction: DashboardOrderNeedingAction[];
+  busyDeliveryAgents: DashboardBusyAgent[];
 }
 
 export interface AuthTokens {

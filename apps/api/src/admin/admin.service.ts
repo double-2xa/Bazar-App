@@ -1,9 +1,28 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { sanitizeUser } from '../common/utils';
 import { CreateDeliveryAgentDto } from './dto/admin.dto';
 import { decimalToNumber } from '../common/utils';
+import {
+  getBeirutStartOfDay,
+  getBeirutDaysAgoStart,
+  getBeirutDateKey,
+  emptyStatusBreakdown,
+  LOW_STOCK_THRESHOLD,
+} from './dashboard.helpers';
+
+const ACTIVE_MAP_STATUSES = [
+  'pending',
+  'confirmed',
+  'assigned',
+  'accepted',
+  'picked_up',
+  'on_the_way',
+] as const;
+
+const IN_DELIVERY_STATUSES = ['assigned', 'accepted', 'picked_up', 'on_the_way'] as const;
 
 @Injectable()
 export class AdminService {
@@ -13,35 +32,439 @@ export class AdminService {
   ) {}
 
   async getDashboardStats() {
+    const startOfToday = getBeirutStartOfDay();
+    const start7d = getBeirutDaysAgoStart(6);
+    const start30d = getBeirutDaysAgoStart(29);
+
+    const unassignedWhere: Prisma.OrderWhereInput = {
+      status: { in: ['pending', 'confirmed'] },
+      deliveryAgentId: null,
+    };
+
+    const deliveredTodayWhere: Prisma.OrderWhereInput = {
+      status: 'delivered',
+      OR: [
+        { deliveryProof: { deliveredAt: { gte: startOfToday } } },
+        { deliveryProof: null, updatedAt: { gte: startOfToday } },
+      ],
+    };
+
+    const activeMapWhere: Prisma.OrderWhereInput = {
+      status: { in: [...ACTIVE_MAP_STATUSES] },
+    };
+
     const [
       totalOrders,
-      totalRevenue,
-      pendingOrders,
-      completedOrders,
+      totalRevenueAgg,
       totalUsers,
-      totalCompanyAccounts,
       totalProducts,
+      totalCompanies,
+      totalDrivers,
+      todayOrders,
+      todayRevenueAgg,
+      deliveredTodayCount,
+      pendingOrdersCount,
+      confirmedOrdersCount,
+      unassignedOrdersCount,
+      inDeliveryOrdersCount,
+      codUnpaidAgg,
+      codUnpaidOrdersCount,
+      pendingCompanyApprovalsCount,
+      activeDeliveryAgentsCount,
+      lowStockProductsCount,
+      completedOrders,
+      statusGroups,
+      ordersReadyForDriverCount,
+      assignedCount,
+      acceptedCount,
+      pickedUpCount,
+      onTheWayCount,
+      mapOrdersRaw,
+      mapOrdersWithoutCoordinates,
+      recentOrdersRaw,
+      topProductGroups,
+      busyAgentsRaw,
+      lowStockProductsRaw,
+      pendingCompaniesRaw,
+      ordersForTrend7,
+      ordersForTrend30,
+      ordersByCityRaw,
     ] = await Promise.all([
       this.prisma.order.count(),
       this.prisma.order.aggregate({
         where: { status: 'delivered' },
         _sum: { totalAmount: true },
       }),
-      this.prisma.order.count({ where: { status: 'pending' } }),
-      this.prisma.order.count({ where: { status: 'delivered' } }),
       this.prisma.user.count({ where: { role: 'normal_user' } }),
-      this.prisma.companyProfile.count({ where: { status: 'approved' } }),
       this.prisma.product.count(),
+      this.prisma.companyProfile.count({ where: { status: 'approved' } }),
+      this.prisma.user.count({ where: { role: 'delivery_agent' } }),
+      this.prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
+      this.prisma.order.aggregate({
+        where: deliveredTodayWhere,
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.order.count({ where: deliveredTodayWhere }),
+      this.prisma.order.count({ where: { status: 'pending' } }),
+      this.prisma.order.count({ where: { status: 'confirmed' } }),
+      this.prisma.order.count({ where: unassignedWhere }),
+      this.prisma.order.count({
+        where: { status: { in: [...IN_DELIVERY_STATUSES] } },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          paymentMethod: 'cash_on_delivery',
+          paymentStatus: 'unpaid',
+          status: { not: 'cancelled' },
+        },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.order.count({
+        where: {
+          paymentMethod: 'cash_on_delivery',
+          paymentStatus: 'unpaid',
+          status: { not: 'cancelled' },
+        },
+      }),
+      this.prisma.companyProfile.count({ where: { status: 'pending' } }),
+      this.prisma.user.count({
+        where: { role: 'delivery_agent', isActive: true },
+      }),
+      this.prisma.product.count({
+        where: { stockQuantity: { lte: LOW_STOCK_THRESHOLD } },
+      }),
+      this.prisma.order.count({ where: { status: 'delivered' } }),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      this.prisma.order.count({
+        where: { status: 'confirmed', deliveryAgentId: null },
+      }),
+      this.prisma.order.count({ where: { status: 'assigned' } }),
+      this.prisma.order.count({ where: { status: 'accepted' } }),
+      this.prisma.order.count({ where: { status: 'picked_up' } }),
+      this.prisma.order.count({ where: { status: 'on_the_way' } }),
+      this.prisma.order.findMany({
+        where: {
+          ...activeMapWhere,
+          address: { latitude: { not: null }, longitude: { not: null } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 150,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          totalAmount: true,
+          paymentStatus: true,
+          paymentMethod: true,
+          createdAt: true,
+          user: { select: { fullName: true, phone: true } },
+          deliveryAgent: { select: { fullName: true } },
+          address: {
+            select: {
+              label: true,
+              city: true,
+              street: true,
+              latitude: true,
+              longitude: true,
+            },
+          },
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...activeMapWhere,
+          OR: [
+            { address: { latitude: null } },
+            { address: { longitude: null } },
+          ],
+        },
+      }),
+      this.prisma.order.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          totalAmount: true,
+          paymentStatus: true,
+          createdAt: true,
+          user: { select: { fullName: true } },
+          deliveryAgent: { select: { fullName: true } },
+        },
+      }),
+      this.prisma.orderItem.groupBy({
+        by: ['productId'],
+        _sum: { quantity: true, totalPrice: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+        take: 5,
+      }),
+      this.prisma.user.findMany({
+        where: { role: 'delivery_agent', isActive: true },
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          isActive: true,
+          _count: {
+            select: {
+              assignedOrders: {
+                where: { status: { in: [...IN_DELIVERY_STATUSES] } },
+              },
+            },
+          },
+        },
+        orderBy: { fullName: 'asc' },
+        take: 20,
+      }),
+      this.prisma.product.findMany({
+        where: { stockQuantity: { lte: LOW_STOCK_THRESHOLD } },
+        orderBy: { stockQuantity: 'asc' },
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          stockQuantity: true,
+          category: { select: { name: true } },
+        },
+      }),
+      this.prisma.companyProfile.findMany({
+        where: { status: 'pending' },
+        orderBy: { createdAt: 'asc' },
+        take: 5,
+        select: {
+          id: true,
+          companyName: true,
+          contactPerson: true,
+          createdAt: true,
+          status: true,
+        },
+      }),
+      this.prisma.order.findMany({
+        where: { createdAt: { gte: start7d } },
+        select: {
+          createdAt: true,
+          totalAmount: true,
+          status: true,
+          paymentMethod: true,
+          paymentStatus: true,
+          deliveryProof: { select: { deliveredAt: true } },
+          updatedAt: true,
+        },
+      }),
+      this.prisma.order.findMany({
+        where: { createdAt: { gte: start30d } },
+        select: {
+          createdAt: true,
+          totalAmount: true,
+          status: true,
+          paymentMethod: true,
+          paymentStatus: true,
+          deliveryProof: { select: { deliveredAt: true } },
+          updatedAt: true,
+        },
+      }),
+      this.prisma.order.findMany({
+        where: activeMapWhere,
+        select: { address: { select: { city: true } } },
+      }),
     ]);
 
-    return {
+    const orderStatusBreakdown = emptyStatusBreakdown();
+    for (const row of statusGroups) {
+      const key = row.status as keyof typeof orderStatusBreakdown;
+      if (key in orderStatusBreakdown) {
+        orderStatusBreakdown[key] = row._count._all;
+      }
+    }
+
+    const codUnpaidAmount = decimalToNumber(codUnpaidAgg._sum.totalAmount || 0);
+    const totalRevenue = decimalToNumber(totalRevenueAgg._sum.totalAmount || 0);
+    const todayRevenue = decimalToNumber(todayRevenueAgg._sum.totalAmount || 0);
+
+    const summary = {
       totalOrders,
-      totalRevenue: decimalToNumber(totalRevenue._sum.totalAmount || 0),
-      pendingOrders,
-      completedOrders,
+      totalRevenue,
       totalUsers,
-      totalCompanyAccounts,
       totalProducts,
+      totalCompanies,
+      totalDrivers,
+      todayOrders,
+      todayRevenue,
+      deliveredTodayCount,
+      pendingOrdersCount,
+      confirmedOrdersCount,
+      unassignedOrdersCount,
+      inDeliveryOrdersCount,
+      codUnpaidAmount,
+      pendingCompanyApprovalsCount,
+      lowStockProductsCount,
+      activeDeliveryAgentsCount,
+      completedOrders,
+    };
+
+    const deliveryPipeline = {
+      toPrepare: pendingOrdersCount,
+      readyForDriver: ordersReadyForDriverCount,
+      assigned: assignedCount,
+      accepted: acceptedCount,
+      pickedUp: pickedUpCount,
+      outForDelivery: onTheWayCount,
+      deliveredToday: deliveredTodayCount,
+    };
+
+    const buildTrend = (orders: typeof ordersForTrend7, days: number) => {
+      const buckets = new Map<
+        string,
+        { ordersCount: number; revenue: number; deliveredCount: number; codAmount: number }
+      >();
+      const now = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(getBeirutStartOfDay(now).getTime() - i * 86400000);
+        buckets.set(getBeirutDateKey(d), {
+          ordersCount: 0,
+          revenue: 0,
+          deliveredCount: 0,
+          codAmount: 0,
+        });
+      }
+      for (const o of orders) {
+        const key = getBeirutDateKey(o.createdAt);
+        const bucket = buckets.get(key);
+        if (!bucket) continue;
+        bucket.ordersCount += 1;
+        if (o.status === 'delivered') {
+          const deliveredAt = o.deliveryProof?.deliveredAt ?? o.updatedAt;
+          if (getBeirutDateKey(deliveredAt) === key) {
+            bucket.deliveredCount += 1;
+            bucket.revenue += decimalToNumber(o.totalAmount);
+          }
+        }
+        if (
+          o.paymentMethod === 'cash_on_delivery' &&
+          o.paymentStatus === 'paid' &&
+          o.status === 'delivered'
+        ) {
+          const deliveredAt = o.deliveryProof?.deliveredAt ?? o.updatedAt;
+          if (getBeirutDateKey(deliveredAt) === key) {
+            bucket.codAmount += decimalToNumber(o.totalAmount);
+          }
+        }
+      }
+      return Array.from(buckets.entries()).map(([date, v]) => ({
+        date,
+        ...v,
+      }));
+    };
+
+    const productIds = topProductGroups.map((g) => g.productId);
+    const productsMeta =
+      productIds.length > 0
+        ? await this.prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, name: true, stockQuantity: true },
+          })
+        : [];
+    const productMap = new Map(productsMeta.map((p) => [p.id, p]));
+
+    const topProducts = topProductGroups.map((g) => {
+      const meta = productMap.get(g.productId);
+      return {
+        productId: g.productId,
+        name: meta?.name ?? 'Unknown product',
+        quantitySold: g._sum.quantity ?? 0,
+        revenue: decimalToNumber(g._sum.totalPrice || 0),
+        stockQuantity: meta?.stockQuantity ?? 0,
+      };
+    });
+
+    const busyDrivers = busyAgentsRaw
+      .map((agent) => ({
+        id: agent.id,
+        fullName: agent.fullName,
+        phone: agent.phone,
+        isActive: agent.isActive,
+        activeOrderCount: agent._count.assignedOrders,
+      }))
+      .sort((a, b) => b.activeOrderCount - a.activeOrderCount)
+      .slice(0, 5);
+
+    const cityCounts = new Map<string, number>();
+    for (const o of ordersByCityRaw) {
+      const city = o.address?.city?.trim() || 'Unknown';
+      cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
+    }
+    const ordersByCity = Array.from(cityCounts.entries())
+      .map(([city, count]) => ({ city, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    return {
+      summary,
+      salesTrend: {
+        days7: buildTrend(ordersForTrend7, 7),
+        days30: buildTrend(ordersForTrend30, 30),
+      },
+      orderStatusBreakdown,
+      deliveryPipeline,
+      mapOrders: mapOrdersRaw
+        .filter((o) => o.address?.latitude != null && o.address?.longitude != null)
+        .map((o) => ({
+          id: o.id,
+          orderNumber: o.orderNumber,
+          status: o.status,
+          totalAmount: decimalToNumber(o.totalAmount),
+          paymentStatus: o.paymentStatus,
+          paymentMethod: o.paymentMethod,
+          latitude: o.address!.latitude!,
+          longitude: o.address!.longitude!,
+          customerName: o.user?.fullName ?? null,
+          customerPhone: o.user?.phone ?? null,
+          addressLabel: o.address?.label ?? null,
+          addressCity: o.address?.city ?? null,
+          deliveryAgentName: o.deliveryAgent?.fullName ?? null,
+          createdAt: o.createdAt.toISOString(),
+        })),
+      mapOrdersWithoutCoordinates,
+      recentOrders: recentOrdersRaw.map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        customerName: o.user?.fullName ?? null,
+        status: o.status,
+        totalAmount: decimalToNumber(o.totalAmount),
+        paymentStatus: o.paymentStatus,
+        createdAt: o.createdAt.toISOString(),
+        deliveryAgentName: o.deliveryAgent?.fullName ?? null,
+      })),
+      topProducts,
+      busyDrivers,
+      pendingCompanies: pendingCompaniesRaw.map((c) => ({
+        id: c.id,
+        companyName: c.companyName,
+        contactPerson: c.contactPerson,
+        contactName: c.contactPerson,
+        createdAt: c.createdAt.toISOString(),
+        status: c.status,
+      })),
+      lowStockProducts: lowStockProductsRaw.map((p) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        stockQuantity: p.stockQuantity,
+        categoryName: p.category?.name ?? null,
+      })),
+      attentionItems: {
+        needsDriver: unassignedOrdersCount,
+        toPrepare: pendingOrdersCount,
+        lowStock: lowStockProductsCount,
+        pendingCompanies: pendingCompanyApprovalsCount,
+        cashToCollect: codUnpaidOrdersCount,
+      },
+      ordersByCity,
     };
   }
 
