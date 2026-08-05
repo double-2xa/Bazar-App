@@ -20,21 +20,37 @@ export const registerCompanySchema = registerSchema.extend({
   companyPhone: z.string().min(5, 'Company phone is required'),
 });
 
-export const addressSchema = z.object({
-  label: z.string().min(1, 'Label is required'),
-  fullName: z.string().min(2, 'Full name is required'),
-  phone: z.string().min(5, 'Phone is required'),
-  country: z.string().min(2, 'Country is required'),
-  city: z.string().min(2, 'City is required'),
-  street: z.string().min(2, 'Street is required'),
-  building: z.string().optional(),
-  floor: z.string().optional(),
-  apartment: z.string().optional(),
-  postalCode: z.string().min(3, 'Postal code is required'),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-  isDefault: z.boolean().optional(),
-});
+export const addressSchema = z
+  .object({
+    label: z.string().min(1, 'Label is required'),
+    fullName: z.string().min(2, 'Full name is required'),
+    phone: z.string().min(5, 'Phone is required'),
+    country: z.string().min(2).default('Lebanon'),
+    governorate: z.string().optional(),
+    district: z.string().optional(),
+    city: z.string().optional(),
+    settlementId: z.string().min(1).optional(),
+    /** Written exact location / directions — Lebanon has no postcodes */
+    street: z.string().min(3, 'Please describe your exact location'),
+    building: z.string().optional(),
+    floor: z.string().optional(),
+    apartment: z.string().optional(),
+    postalCode: z.string().optional(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    locationAccuracyM: z.number().min(0).optional(),
+    isDefault: z.boolean().optional(),
+  })
+  .refine((data) => !!data.settlementId || (!!data.governorate && !!data.district && !!data.city), {
+    message: 'Select your city from the Lebanon list',
+    path: ['settlementId'],
+  })
+  .refine(
+    (data) =>
+      (data.latitude == null && data.longitude == null) ||
+      (data.latitude != null && data.longitude != null),
+    { message: 'Both latitude and longitude are required for a live pin', path: ['latitude'] },
+  );
 
 export const createOrderSchema = z.object({
   addressId: z.string().uuid(),

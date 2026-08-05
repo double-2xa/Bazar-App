@@ -67,9 +67,11 @@ export default function AddressListScreen() {
               </View>
               <Text style={styles.name}>{item.fullName} · {item.phone}</Text>
               <Text style={styles.addressLine}>{item.street}</Text>
-              <Text style={styles.addressLine}>{item.city}, {item.postalCode}</Text>
-              {(item.latitude && item.longitude) ? (
-                <Text style={styles.geoTag}>Geo pin saved</Text>
+              <Text style={styles.addressLine}>
+                {[item.city, item.district, item.governorate].filter(Boolean).join(', ')}
+              </Text>
+              {item.hasExactLocation || (item.latitude && item.longitude) ? (
+                <Text style={styles.geoTag}>Exact GPS pin saved securely</Text>
               ) : null}
             </View>
             <View style={styles.actions}>

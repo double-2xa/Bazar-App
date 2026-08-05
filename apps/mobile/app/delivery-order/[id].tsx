@@ -30,10 +30,21 @@ const PAYMENT_STATUS_VARIANT: Record<string, 'warning' | 'success' | 'danger'> =
   refunded: 'danger',
 };
 
-function formatAddress(order: { address?: { street?: string; city?: string; state?: string; zipCode?: string } }) {
+function formatAddress(order: {
+  address?: {
+    street?: string;
+    building?: string;
+    city?: string;
+    district?: string;
+    governorate?: string;
+    country?: string;
+  };
+}) {
   if (!order.address) return '';
-  const { street, city, state, zipCode } = order.address;
-  return [street, city, state, zipCode].filter(Boolean).join(', ');
+  const { street, building, city, district, governorate, country } = order.address;
+  const line1 = [street, building].filter(Boolean).join(', ');
+  const line2 = [city, district, governorate, country].filter(Boolean).join(', ');
+  return [line1, line2].filter(Boolean).join(' — ');
 }
 
 export default function DeliveryOrderDetailsScreen() {

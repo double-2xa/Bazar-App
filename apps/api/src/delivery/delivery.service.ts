@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
+import { AddressesService } from '../addresses/addresses.service';
 import { decimalToNumber } from '../common/utils';
 import {
   assertDriverAccept,
@@ -19,6 +20,7 @@ export class DeliveryService {
   constructor(
     private prisma: PrismaService,
     private ordersService: OrdersService,
+    private addressesService: AddressesService,
   ) {}
 
   async getAssignedOrders(agentId: string, status?: string) {
@@ -46,6 +48,7 @@ export class DeliveryService {
     for (const order of orders) {
       const formatted = {
         ...order,
+        address: order.address ? this.addressesService.toPublic(order.address) : null,
         subtotal: decimalToNumber(order.subtotal),
         totalAmount: decimalToNumber(order.totalAmount),
         itemCount: order.items.length,

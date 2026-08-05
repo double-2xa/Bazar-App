@@ -32,16 +32,17 @@ function formatAddressLine(order: {
     street?: string;
     building?: string | null;
     city?: string;
-    postalCode?: string;
+    district?: string | null;
+    governorate?: string | null;
     country?: string;
     fullName?: string;
     phone?: string;
   };
 }) {
   if (!order.address) return '';
-  const { street, building, city, postalCode, country } = order.address;
+  const { street, building, city, district, governorate, country } = order.address;
   const line1 = [street, building].filter(Boolean).join(', ');
-  const line2 = [city, postalCode, country].filter(Boolean).join(', ');
+  const line2 = [city, district, governorate, country].filter(Boolean).join(', ');
   return [line1, line2].filter(Boolean).join('\n');
 }
 

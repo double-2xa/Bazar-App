@@ -75,9 +75,17 @@ export function getDeliveryAssignmentDisplay(order: OrderForDelivery): {
     };
   }
 
-  if ((order.status === 'pending' || order.status === 'confirmed') && !order.deliveryAgentId) {
+  if (order.status === 'pending') {
     return {
-      label: 'Unassigned',
+      label: 'To prepare',
+      badge: 'badge-warning',
+      needsAction: false,
+    };
+  }
+
+  if (order.status === 'confirmed' && !order.deliveryAgentId) {
+    return {
+      label: 'Ready for driver',
       badge: 'badge-warning',
       needsAction: true,
     };
@@ -93,7 +101,7 @@ export function getDeliveryAssignmentDisplay(order: OrderForDelivery): {
 export function matchesDeliveryFilter(order: OrderForDelivery, filter: DeliveryFilter): boolean {
   if (filter === 'all') return true;
   if (filter === 'unassigned') {
-    return (order.status === 'pending' || order.status === 'confirmed') && !order.deliveryAgentId;
+    return order.status === 'confirmed' && !order.deliveryAgentId;
   }
   if (filter === 'assigned') return order.status === 'assigned';
   if (filter === 'in_delivery') {
@@ -104,7 +112,17 @@ export function matchesDeliveryFilter(order: OrderForDelivery, filter: DeliveryF
 }
 
 export function canAssignDriver(status: string): boolean {
-  return ['pending', 'confirmed', 'assigned', 'accepted'].includes(status);
+  return ['confirmed', 'assigned', 'accepted'].includes(status);
+}
+
+export function isPreparingOrder(status: string): boolean {
+  return status === 'pending';
+}
+
+export function isReadyForDriverAssignment(status: string): boolean {
+  return ['confirmed', 'assigned', 'accepted', 'picked_up', 'on_the_way', 'delivered'].includes(
+    status,
+  );
 }
 
 export function canUnassignDriver(status: string): boolean {

@@ -82,15 +82,42 @@ export interface Address {
   fullName: string;
   phone: string;
   country: string;
+  governorate: string | null;
+  district: string | null;
   city: string;
+  settlementId: string | null;
   street: string;
   building: string | null;
   floor: string | null;
   apartment: string | null;
-  postalCode: string;
+  /** Optional — Lebanon does not use postal codes */
+  postalCode: string | null;
+  /** Decrypted exact GPS for authorized callers only */
   latitude: number | null;
   longitude: number | null;
+  locationAccuracyM: number | null;
+  locationCapturedAt: string | null;
+  hasExactLocation: boolean;
   isDefault: boolean;
+}
+
+export interface LebanonSettlement {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  governorate: string | null;
+  district: string | null;
+  placeType: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface LebanonHierarchy {
+  country: string;
+  countryCode: string;
+  governorates: string[];
+  districtsByGovernorate: Record<string, string[]>;
+  settlementCount: number;
 }
 
 export interface CartItem {
@@ -279,10 +306,14 @@ export interface DashboardMapOrder {
   paymentMethod: PaymentMethod;
   latitude: number;
   longitude: number;
+  /** exact = customer GPS pin; settlement = city centroid from Lebanon basemap */
+  locationPrecision: 'exact' | 'settlement';
   customerName: string | null;
   customerPhone: string | null;
   addressLabel: string | null;
   addressCity: string | null;
+  addressGovernorate?: string | null;
+  addressDistrict?: string | null;
   deliveryAgentName: string | null;
   createdAt: string;
 }

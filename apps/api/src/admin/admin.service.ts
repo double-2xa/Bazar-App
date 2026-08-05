@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
+import { AddressesService } from '../addresses/addresses.service';
+import { LocationsService } from '../locations/locations.service';
 import { sanitizeUser } from '../common/utils';
 import { CreateDeliveryAgentDto } from './dto/admin.dto';
 import { decimalToNumber } from '../common/utils';
@@ -29,6 +31,8 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private authService: AuthService,
+    private addressesService: AddressesService,
+    private locationsService: LocationsService,
   ) {}
 
   async getDashboardStats() {
@@ -37,7 +41,7 @@ export class AdminService {
     const start30d = getBeirutDaysAgoStart(29);
 
     const unassignedWhere: Prisma.OrderWhereInput = {
-      status: { in: ['pending', 'confirmed'] },
+      status: 'confirmed',
       deliveryAgentId: null,
     };
 
@@ -80,7 +84,7 @@ export class AdminService {
       pickedUpCount,
       onTheWayCount,
       mapOrdersRaw,
-      mapOrdersWithoutCoordinates,
+      activeOrdersForMapCount,
       recentOrdersRaw,
       topProductGroups,
       busyAgentsRaw,
@@ -146,12 +150,9 @@ export class AdminService {
       this.prisma.order.count({ where: { status: 'picked_up' } }),
       this.prisma.order.count({ where: { status: 'on_the_way' } }),
       this.prisma.order.findMany({
-        where: {
-          ...activeMapWhere,
-          address: { latitude: { not: null }, longitude: { not: null } },
-        },
+        where: activeMapWhere,
         orderBy: { createdAt: 'desc' },
-        take: 150,
+        take: 200,
         select: {
           id: true,
           orderNumber: true,
@@ -167,20 +168,28 @@ export class AdminService {
               label: true,
               city: true,
               street: true,
-              latitude: true,
-              longitude: true,
+              governorate: true,
+              district: true,
+              settlementId: true,
+              locationEncrypted: true,
+              locationHash: true,
+              hasExactLocation: true,
+              locationAccuracyM: true,
+              locationCapturedAt: true,
+              fullName: true,
+              phone: true,
+              country: true,
+              building: true,
+              floor: true,
+              apartment: true,
+              postalCode: true,
+              isDefault: true,
             },
           },
         },
       }),
       this.prisma.order.count({
-        where: {
-          ...activeMapWhere,
-          OR: [
-            { address: { latitude: null } },
-            { address: { longitude: null } },
-          ],
-        },
+        where: activeMapWhere,
       }),
       this.prisma.order.findMany({
         orderBy: { createdAt: 'desc' },
@@ -403,6 +412,75 @@ export class AdminService {
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
 
+    const mapOrders = mapOrdersRaw
+      .map((o) => {
+        const base = {
+          id: o.id,
+          orderNumber: o.orderNumber,
+          status: o.status,
+          totalAmount: decimalToNumber(o.totalAmount),
+          paymentStatus: o.paymentStatus,
+          paymentMethod: o.paymentMethod,
+          customerName: o.user?.fullName ?? null,
+          customerPhone: o.user?.phone ?? null,
+          addressLabel: o.address?.label ?? null,
+          addressCity: o.address?.city ?? null,
+          addressGovernorate: o.address?.governorate ?? null,
+          addressDistrict: o.address?.district ?? null,
+          deliveryAgentName: o.deliveryAgent?.fullName ?? null,
+          createdAt: o.createdAt.toISOString(),
+        };
+
+        if (o.address?.hasExactLocation && o.address.locationEncrypted) {
+          const coords = this.addressesService.decryptCoords(
+            o.address.locationEncrypted,
+            o.address.locationHash,
+          );
+          if (coords) {
+            return {
+              ...base,
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              locationPrecision: 'exact' as const,
+            };
+          }
+        }
+
+        // Fallback: place pin on Lebanon basemap settlement / city centroid
+        if (o.address?.settlementId) {
+          const settlement = this.locationsService.findOneInternal(o.address.settlementId);
+          if (settlement) {
+            return {
+              ...base,
+              latitude: settlement.latitude,
+              longitude: settlement.longitude,
+              locationPrecision: 'settlement' as const,
+            };
+          }
+        }
+
+        if (o.address?.city) {
+          const match = this.locationsService.findByName({
+            name: o.address.city,
+            governorate: o.address.governorate,
+            district: o.address.district,
+          });
+          if (match) {
+            return {
+              ...base,
+              latitude: match.latitude,
+              longitude: match.longitude,
+              locationPrecision: 'settlement' as const,
+            };
+          }
+        }
+
+        return null;
+      })
+      .filter((o): o is NonNullable<typeof o> => o != null);
+
+    const mapOrdersWithoutCoordinates = Math.max(0, activeOrdersForMapCount - mapOrders.length);
+
     return {
       summary,
       salesTrend: {
@@ -411,24 +489,7 @@ export class AdminService {
       },
       orderStatusBreakdown,
       deliveryPipeline,
-      mapOrders: mapOrdersRaw
-        .filter((o) => o.address?.latitude != null && o.address?.longitude != null)
-        .map((o) => ({
-          id: o.id,
-          orderNumber: o.orderNumber,
-          status: o.status,
-          totalAmount: decimalToNumber(o.totalAmount),
-          paymentStatus: o.paymentStatus,
-          paymentMethod: o.paymentMethod,
-          latitude: o.address!.latitude!,
-          longitude: o.address!.longitude!,
-          customerName: o.user?.fullName ?? null,
-          customerPhone: o.user?.phone ?? null,
-          addressLabel: o.address?.label ?? null,
-          addressCity: o.address?.city ?? null,
-          deliveryAgentName: o.deliveryAgent?.fullName ?? null,
-          createdAt: o.createdAt.toISOString(),
-        })),
+      mapOrders,
       mapOrdersWithoutCoordinates,
       recentOrders: recentOrdersRaw.map((o) => ({
         id: o.id,

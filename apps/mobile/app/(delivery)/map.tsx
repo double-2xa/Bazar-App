@@ -30,7 +30,7 @@ export default function DeliveryMapScreen() {
   const hasMarkers = markers.length > 0;
   const center = hasMarkers
     ? { latitude: markers[0].latitude, longitude: markers[0].longitude }
-    : { latitude: 52.3676, longitude: 4.9041 };
+    : { latitude: 33.8547, longitude: 35.8623 };
 
   return (
     <View style={styles.container}>

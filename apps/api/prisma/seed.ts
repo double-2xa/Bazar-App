@@ -1,8 +1,17 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { BRAND } from '@doublea/shared';
+import { LocationCrypto } from '../src/common/utils/location-crypto';
 
 const prisma = new PrismaClient();
+
+function encryptSeedLocation(latitude: number, longitude: number) {
+  const crypto = new LocationCrypto(
+    process.env.LOCATION_ENCRYPTION_KEY,
+    process.env.LOCATION_HMAC_SECRET,
+  );
+  return crypto.encrypt({ latitude, longitude, capturedAt: new Date().toISOString() });
+}
 
 const PRODUCT_IMAGES = [
   'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
@@ -195,15 +204,19 @@ async function main() {
       userId: normalUser.id,
       label: 'Home',
       fullName: 'John Customer',
-      phone: '+1234567891',
-      country: 'USA',
-      city: 'New York',
-      street: '123 Main Street',
-      building: 'Apt 4B',
-      postalCode: '10001',
-      latitude: 40.7128,
-      longitude: -74.006,
+      phone: '+96171111111',
+      country: 'Lebanon',
+      governorate: 'Beirut',
+      district: 'Beirut',
+      city: 'Raoucheh',
+      settlementId: 'CAS_LBN11087',
+      street: 'Near the rock, building facing the corniche',
+      building: 'Bldg 12',
+      floor: '3',
+      apartment: '3B',
+      postalCode: null,
       isDefault: true,
+      ...encryptSeedLocation(33.8915, 35.4723),
     },
   });
 
@@ -215,15 +228,18 @@ async function main() {
       userId: companyUser.id,
       label: 'Office',
       fullName: 'Sarah Business',
-      phone: '+1234567892',
-      country: 'USA',
-      city: 'New York',
-      street: '100 Business Park',
-      building: 'Suite 200',
-      postalCode: '10002',
-      latitude: 40.758,
-      longitude: -73.9855,
+      phone: '+96171111112',
+      country: 'Lebanon',
+      governorate: 'Mount Lebanon',
+      district: 'Baabda',
+      city: 'Hazmieh',
+      street: 'Main road, next to the bank',
+      building: 'Plaza Tower',
+      floor: '5',
+      apartment: '501',
+      postalCode: null,
       isDefault: true,
+      ...encryptSeedLocation(33.8505, 35.5402),
     },
   });
 

@@ -1,0 +1,62 @@
+{
+  "country": "Lebanon",
+  "countryCode": "LB",
+  "governorates": [
+    "Akkar",
+    "Baalbek-El Hermel",
+    "Beirut",
+    "Bekaa",
+    "El Nabatieh",
+    "Keserwan-Jbeil",
+    "Mount Lebanon",
+    "North",
+    "South"
+  ],
+  "districtsByGovernorate": {
+    "Akkar": [
+      "Akkar"
+    ],
+    "Baalbek-El Hermel": [
+      "Baalbek",
+      "El Hermel"
+    ],
+    "Beirut": [
+      "Beirut"
+    ],
+    "Bekaa": [
+      "Rachaya",
+      "West Bekaa",
+      "Zahle"
+    ],
+    "El Nabatieh": [
+      "Bent Jbeil",
+      "El Nabatieh",
+      "Hasbaya",
+      "Marjaayoun"
+    ],
+    "Keserwan-Jbeil": [
+      "Jbeil",
+      "Kesrwane"
+    ],
+    "Mount Lebanon": [
+      "Aley",
+      "Baabda",
+      "Chouf",
+      "El Meten"
+    ],
+    "North": [
+      "Bcharre",
+      "El Batroun",
+      "El Koura",
+      "El Minieh-Dennie",
+      "Tripoli",
+      "Zgharta"
+    ],
+    "South": [
+      "Jezzine",
+      "Saida",
+      "Sour"
+    ]
+  },
+  "settlementCount": 2901
+}

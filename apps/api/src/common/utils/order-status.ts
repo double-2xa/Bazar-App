@@ -3,8 +3,8 @@ import { ADMIN_ORDER_TRANSITIONS } from '@doublea/shared';
 
 const TERMINAL_STATUSES = ['delivered', 'cancelled'] as const;
 
-/** Statuses from which admin may assign or reassign a driver */
-export const ASSIGNABLE_STATUSES = ['pending', 'confirmed', 'assigned', 'accepted'] as const;
+/** Statuses from which admin may assign or reassign a driver (after packing is done) */
+export const ASSIGNABLE_STATUSES = ['confirmed', 'assigned', 'accepted'] as const;
 
 /** Statuses from which driver or admin may unassign/reject back to confirmed */
 export const UNASSIGNABLE_STATUSES = ['assigned', 'accepted'] as const;
@@ -33,7 +33,7 @@ export function assertAdminStatusTransition(current: string, next: string) {
 export function assertAssignFromStatus(status: string) {
   if (!ASSIGNABLE_STATUSES.includes(status as (typeof ASSIGNABLE_STATUSES)[number])) {
     throw new BadRequestException(
-      `Orders can only be assigned from pending, confirmed, assigned, or accepted (current: ${status})`,
+      `Finish packing first (mark order as ready). Orders can only be assigned from confirmed, assigned, or accepted (current: ${status})`,
     );
   }
 }

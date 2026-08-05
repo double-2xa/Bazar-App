@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { decimalToNumber, generateOrderNumber } from '../common/utils';
 import { assertAdminStatusTransition, assertAssignFromStatus, assertRejectFromStatus, assertNotTerminal, assertUnassignFromStatus, isReassignment } from '../common/utils/order-status';
 import { CreateOrderDto } from './dto/order.dto';
+import { AddressesService } from '../addresses/addresses.service';
 
 const DEFAULT_DELIVERY_FEE = 5.99;
 const DEFAULT_TAX_RATE = 0.08;
@@ -23,11 +24,19 @@ const ORDER_DETAIL_INCLUDE = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private addressesService: AddressesService,
+  ) {}
 
   private formatOrder(order: Record<string, unknown>) {
+    const address = order.address
+      ? this.addressesService.toPublic(order.address as never)
+      : undefined;
+
     return {
       ...order,
+      address,
       subtotal: decimalToNumber(order.subtotal as never),
       deliveryFee: decimalToNumber(order.deliveryFee as never),
       discountAmount: decimalToNumber(order.discountAmount as never),
@@ -280,16 +289,10 @@ export class OrdersService {
     });
     if (!agent) throw new NotFoundException('Delivery agent not found');
 
-    const fromPending = order.status === 'pending';
     const reassign = isReassignment(order.status);
-    let note: string;
-    if (fromPending) {
-      note = `Order confirmed and assigned to ${agent.fullName}.`;
-    } else if (reassign) {
-      note = `Reassigned to ${agent.fullName}`;
-    } else {
-      note = `Assigned to ${agent.fullName}`;
-    }
+    const note = reassign
+      ? `Reassigned to ${agent.fullName}`
+      : `Assigned to ${agent.fullName}`;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.order.update({

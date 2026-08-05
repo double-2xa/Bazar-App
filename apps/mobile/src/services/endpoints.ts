@@ -54,11 +54,28 @@ export const cartApi = {
 
 export const addressesApi = {
   getAll: () => api.get<Address[]>('/addresses').then((r) => r.data),
-  create: (data: Partial<Address>) => api.post<Address>('/addresses', data).then((r) => r.data),
-  update: (id: string, data: Partial<Address>) =>
+  create: (data: Record<string, unknown>) => api.post<Address>('/addresses', data).then((r) => r.data),
+  update: (id: string, data: Record<string, unknown>) =>
     api.patch<Address>(`/addresses/${id}`, data).then((r) => r.data),
   remove: (id: string) => api.delete(`/addresses/${id}`).then((r) => r.data),
   setDefault: (id: string) => api.patch(`/addresses/${id}/default`).then((r) => r.data),
+};
+
+export const locationsApi = {
+  getHierarchy: () =>
+    api.get<import('@doublea/shared').LebanonHierarchy>('/locations/lebanon/hierarchy').then((r) => r.data),
+  getSettlements: (params?: {
+    governorate?: string;
+    district?: string;
+    q?: string;
+    limit?: number;
+  }) =>
+    api
+      .get<{ total: number; data: import('@doublea/shared').LebanonSettlement[] }>(
+        '/locations/lebanon/settlements',
+        { params },
+      )
+      .then((r) => r.data),
 };
 
 export const ordersApi = {
