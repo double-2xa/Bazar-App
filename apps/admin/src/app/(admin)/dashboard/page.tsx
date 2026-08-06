@@ -89,60 +89,122 @@ export default function DashboardPage() {
         ]}
       />
 
-      <section className="dash-widgets-row" aria-label="Quick actions">
-        <DashboardWidget
-          title={ADMIN_OPS_LABELS.needsDriver}
-          value={summary.unassignedOrdersCount}
-          href="/orders?deliveryFilter=unassigned"
-          tone={summary.unassignedOrdersCount > 0 ? 'attention' : 'default'}
-          compact
-        />
-        <DashboardWidget
-          title={ADMIN_OPS_LABELS.toPrepare}
-          value={summary.pendingOrdersCount}
-          href="/orders?status=pending"
-          tone={summary.pendingOrdersCount > 0 ? 'attention' : 'default'}
-          compact
-        />
-        <DashboardWidget
-          title="Ready for driver"
-          value={data.deliveryPipeline.readyForDriver}
-          href="/orders?deliveryFilter=unassigned"
-          compact
-        />
-        <DashboardWidget
-          title="In delivery"
-          value={summary.inDeliveryOrdersCount}
-          href="/orders?deliveryFilter=in_delivery"
-          compact
-        />
-        <DashboardWidget
-          title="Delivered today"
-          value={summary.deliveredTodayCount}
-          href="/orders?deliveryFilter=delivered"
-          tone="success"
-          compact
-        />
-        <DashboardWidget
-          title={ADMIN_OPS_LABELS.waitingApproval}
-          value={summary.pendingCompanyApprovalsCount}
-          href="/companies?status=pending"
-          tone={summary.pendingCompanyApprovalsCount > 0 ? 'attention' : 'default'}
-          compact
-        />
-        <DashboardWidget
-          title={ADMIN_OPS_LABELS.lowStock}
-          value={summary.lowStockProductsCount}
-          href="/products"
-          tone={summary.lowStockProductsCount > 0 ? 'danger' : 'default'}
-          compact
-        />
-        <DashboardWidget
-          title="Active drivers"
-          value={summary.activeDeliveryAgentsCount}
-          href="/delivery-agents"
-          compact
-        />
+      <section className="dash-widget-section" aria-label="Orders and delivery">
+        <div className="dash-section-header">
+          <div>
+            <div className="dash-section-header__title">Orders & delivery</div>
+            <div className="dash-section-header__subtitle">Fulfillment pipeline and driver status</div>
+          </div>
+        </div>
+        <div className="dash-widgets-row">
+          <DashboardWidget
+            title={ADMIN_OPS_LABELS.needsDriver}
+            value={summary.unassignedOrdersCount}
+            href="/orders?deliveryFilter=unassigned"
+            tone={summary.unassignedOrdersCount > 0 ? 'attention' : 'default'}
+            compact
+          />
+          <DashboardWidget
+            title={ADMIN_OPS_LABELS.toPrepare}
+            value={summary.pendingOrdersCount}
+            href="/orders?status=pending"
+            tone={summary.pendingOrdersCount > 0 ? 'attention' : 'default'}
+            compact
+          />
+          <DashboardWidget
+            title="Ready for driver"
+            value={data.deliveryPipeline.readyForDriver}
+            href="/orders?deliveryFilter=unassigned"
+            compact
+          />
+          <DashboardWidget
+            title="In delivery"
+            value={summary.inDeliveryOrdersCount}
+            href="/orders?deliveryFilter=in_delivery"
+            compact
+          />
+          <DashboardWidget
+            title="Delivered today"
+            value={summary.deliveredTodayCount}
+            href="/orders?deliveryFilter=delivered"
+            tone="success"
+            compact
+          />
+          <DashboardWidget
+            title="Active drivers"
+            value={summary.activeDeliveryAgentsCount}
+            href="/delivery-agents"
+            compact
+          />
+        </div>
+      </section>
+
+      <section className="dash-widget-section" aria-label="Items">
+        <div className="dash-section-header">
+          <div>
+            <div className="dash-section-header__title">Items</div>
+            <div className="dash-section-header__subtitle">Catalog stock health</div>
+          </div>
+        </div>
+        <div className="dash-widgets-row">
+          <DashboardWidget
+            title={ADMIN_OPS_LABELS.inStock}
+            value={summary.inStockProductsCount}
+            href="/products"
+            tone="success"
+            compact
+          />
+          <DashboardWidget
+            title={ADMIN_OPS_LABELS.soldOut}
+            value={summary.soldOutProductsCount}
+            href="/products"
+            tone={summary.soldOutProductsCount > 0 ? 'danger' : 'default'}
+            compact
+          />
+          <DashboardWidget
+            title={ADMIN_OPS_LABELS.lowStock}
+            value={summary.lowStockProductsCount}
+            href="/products"
+            tone={summary.lowStockProductsCount > 0 ? 'danger' : 'default'}
+            compact
+          />
+          <DashboardWidget
+            title="Total products"
+            value={summary.totalProducts}
+            href="/products"
+            compact
+          />
+        </div>
+      </section>
+
+      <section className="dash-widget-section" aria-label="Users">
+        <div className="dash-section-header">
+          <div>
+            <div className="dash-section-header__title">Users</div>
+            <div className="dash-section-header__subtitle">Accounts and wholesale requests</div>
+          </div>
+        </div>
+        <div className="dash-widgets-row">
+          <DashboardWidget
+            title={ADMIN_OPS_LABELS.registeredUsers}
+            value={summary.totalUsers}
+            href="/users?status=active"
+            compact
+          />
+          <DashboardWidget
+            title={ADMIN_OPS_LABELS.registeredCompanies}
+            value={summary.totalCompanies}
+            href="/companies?status=active"
+            compact
+          />
+          <DashboardWidget
+            title={ADMIN_OPS_LABELS.waitingApproval}
+            value={summary.pendingCompanyApprovalsCount}
+            href="/companies?status=pending"
+            tone={summary.pendingCompanyApprovalsCount > 0 ? 'attention' : 'default'}
+            compact
+          />
+        </div>
       </section>
 
       <section className="dash-main-grid" aria-label="Map and analytics">

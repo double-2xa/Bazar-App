@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { UserPublic, Product, PriceType } from '@doublea/shared';
 import { authApi, cartApi } from '../services/endpoints';
-import { getGoogleIdToken } from '../services/googleAuth';
 import { tokenStorage } from '../services/tokenStorage';
 
 export interface GuestCartItem {
@@ -65,6 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loginWithGoogle: async () => {
+    const { getGoogleIdToken } = await import('../services/googleAuth');
     const idToken = await getGoogleIdToken();
     const data = await authApi.googleLogin(idToken);
     await tokenStorage.setItemAsync('accessToken', data.tokens.accessToken);

@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -87,6 +89,8 @@ export class AdminService {
       pendingCompanyApprovalsCount,
       activeDeliveryAgentsCount,
       lowStockProductsCount,
+      soldOutProductsCount,
+      inStockProductsCount,
       completedOrders,
       statusGroups,
       ordersReadyForDriverCount,
@@ -110,9 +114,11 @@ export class AdminService {
         where: { status: "delivered" },
         _sum: { totalAmount: true },
       }),
-      this.prisma.user.count({ where: { role: "normal_user" } }),
+      this.prisma.user.count({
+        where: { role: { in: ["normal_user", "company"] } },
+      }),
       this.prisma.product.count(),
-      this.prisma.companyProfile.count({ where: { status: "approved" } }),
+      this.prisma.companyProfile.count(),
       this.prisma.user.count({ where: { role: "delivery_agent" } }),
       this.prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
       this.prisma.order.aggregate({
@@ -147,6 +153,12 @@ export class AdminService {
       }),
       this.prisma.product.count({
         where: { stockQuantity: { lte: LOW_STOCK_THRESHOLD } },
+      }),
+      this.prisma.product.count({
+        where: { stockQuantity: { lte: 0 } },
+      }),
+      this.prisma.product.count({
+        where: { stockQuantity: { gt: 0 } },
       }),
       this.prisma.order.count({ where: { status: "delivered" } }),
       this.prisma.order.groupBy({
@@ -323,6 +335,8 @@ export class AdminService {
       codUnpaidAmount,
       pendingCompanyApprovalsCount,
       lowStockProductsCount,
+      soldOutProductsCount,
+      inStockProductsCount,
       activeDeliveryAgentsCount,
       completedOrders,
     };
@@ -550,11 +564,41 @@ export class AdminService {
     };
   }
 
-  async getUsers(query: { page?: number; limit?: number; role?: string }) {
+  async getUsers(query: {
+    page?: number;
+    limit?: number;
+    role?: string;
+    status?: string;
+  }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
-    const where = query.role ? { role: query.role as never } : {};
+    const status = query.status || "active";
+
+    const where: Prisma.UserWhereInput = {
+      ...(query.role ? { role: query.role as never } : {}),
+    };
+
+    if (status === "pending") {
+      where.role = "company";
+      where.companyProfile = { is: { status: "pending" } };
+    } else if (status === "rejected") {
+      where.role = "company";
+      where.companyProfile = { is: { status: "rejected" } };
+    } else if (status === "inactive") {
+      where.isActive = false;
+      where.OR = [
+        { role: { not: "company" } },
+        { companyProfile: { is: { status: "approved" } } },
+      ];
+    } else {
+      // active — exclude wholesale applicants still awaiting / denied approval
+      where.isActive = true;
+      where.OR = [
+        { role: { not: "company" } },
+        { companyProfile: { is: { status: "approved" } } },
+      ];
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.user.findMany({
@@ -594,12 +638,101 @@ export class AdminService {
     return sanitizeUser(user);
   }
 
+  async deleteUser(id: string, adminId: string) {
+    if (id === adminId) {
+      throw new ForbiddenException("You cannot delete your own account");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException("User not found");
+    if (user.role === "admin") {
+      throw new ForbiddenException("Admin accounts cannot be deleted");
+    }
+
+    const [customerOrders, assignedOrders, deliveryProofs] = await Promise.all([
+      this.prisma.order.count({ where: { userId: id } }),
+      this.prisma.order.count({ where: { deliveryAgentId: id } }),
+      this.prisma.deliveryProof.count({ where: { deliveryAgentId: id } }),
+    ]);
+
+    if (customerOrders > 0 || assignedOrders > 0 || deliveryProofs > 0) {
+      throw new BadRequestException(
+        "This user has order history. Deactivate the account instead of deleting.",
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderStatusHistory.updateMany({
+        where: { changedByUserId: id },
+        data: { changedByUserId: null },
+      });
+      await tx.review.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
+
+    return { message: "User deleted" };
+  }
+
+  /** Permanently remove all company accounts that were rejected. */
+  async deleteAllRejectedCompanyUsers(adminId: string) {
+    const rejected = await this.prisma.user.findMany({
+      where: {
+        role: "company",
+        id: { not: adminId },
+        companyProfile: { is: { status: "rejected" } },
+      },
+      select: { id: true },
+    });
+
+    let deleted = 0;
+    let skipped = 0;
+
+    for (const user of rejected) {
+      try {
+        await this.deleteUser(user.id, adminId);
+        deleted += 1;
+      } catch {
+        skipped += 1;
+      }
+    }
+
+    return {
+      message: `Removed ${deleted} rejected company user(s)`,
+      deleted,
+      skipped,
+    };
+  }
+
   async getCompanyAccounts(status?: string) {
+    const filter = status || "pending";
+    let where: Prisma.CompanyProfileWhereInput;
+
+    if (filter === "pending") {
+      where = { status: "pending" };
+    } else if (filter === "rejected") {
+      where = { status: "rejected" };
+    } else if (filter === "inactive") {
+      where = { status: "approved", user: { isActive: false } };
+    } else if (filter === "active") {
+      where = { status: "approved", user: { isActive: true } };
+    } else if (filter === "approved") {
+      // Legacy query from older UI / dashboard links
+      where = { status: "approved" };
+    } else {
+      where = {};
+    }
+
     return this.prisma.companyProfile.findMany({
-      where: status ? { status: status as never } : undefined,
+      where,
       include: {
         user: {
-          select: { id: true, email: true, fullName: true, phone: true },
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            phone: true,
+            isActive: true,
+          },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -609,7 +742,10 @@ export class AdminService {
   async approveCompany(id: string) {
     const profile = await this.prisma.companyProfile.update({
       where: { id },
-      data: { status: "approved" },
+      data: {
+        status: "approved",
+        user: { update: { isActive: true } },
+      },
       include: { user: true },
     });
 
@@ -630,7 +766,10 @@ export class AdminService {
   async rejectCompany(id: string) {
     const profile = await this.prisma.companyProfile.update({
       where: { id },
-      data: { status: "rejected" },
+      data: {
+        status: "rejected",
+        user: { update: { isActive: false } },
+      },
       include: { user: true },
     });
 

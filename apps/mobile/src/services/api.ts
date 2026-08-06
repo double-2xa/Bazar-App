@@ -7,13 +7,23 @@ const API_URL = getApiUrl();
 export const api = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 15000,
+  // Auth (bcrypt) can take >15s on slower machines; avoid false "failed" after server already saved.
+  timeout: 45000,
 });
 
 api.interceptors.request.use(async (config) => {
-  const token = await tokenStorage.getItemAsync('accessToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const url = config.url || '';
+  const skipAuth =
+    url.includes('/auth/register') ||
+    url.includes('/auth/register-company') ||
+    url.includes('/auth/login') ||
+    url.includes('/auth/google');
+
+  if (!skipAuth) {
+    const token = await tokenStorage.getItemAsync('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });

@@ -89,6 +89,10 @@ export const ADMIN_OPS_LABELS = {
   cashToCollect: 'Cash to collect',
   waitingApproval: 'Waiting approval',
   lowStock: 'Low stock',
+  registeredUsers: 'Users registered',
+  registeredCompanies: 'Companies registered',
+  soldOut: 'Sold out',
+  inStock: 'In stock',
 } as const;
 
 /** TODO: make configurable via settings API later */

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,16 +8,60 @@ import type { z } from 'zod';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '@/theme';
 import { authApi } from '@/services/endpoints';
+import { getApiUrl } from '@/services/getApiUrl';
 import { tokenStorage } from '@/services/tokenStorage';
 import { useAuthStore } from '@/store/authStore';
 import { AppButton, AppInput } from '@/components';
 import { routeAfterAuth } from '@/utils/routeAfterAuth';
+import { showAlert } from '@/utils/showAlert';
+
+function apiErrorMessage(err: unknown, fallback: string) {
+  const axiosErr = err as {
+    code?: string;
+    message?: string;
+    response?: { data?: { message?: string | string[] } };
+  };
+  const raw = axiosErr.response?.data?.message;
+  if (Array.isArray(raw)) return raw.join(', ');
+  if (typeof raw === 'string' && raw.length > 0) return raw;
+  if (axiosErr.code === 'ECONNABORTED') return 'Request timed out. Please try again.';
+  if (err instanceof Error && err.message) return err.message;
+  if (axiosErr.message) return axiosErr.message;
+  return fallback;
+}
+
+/** Direct fetch — avoids axios interceptors masking a successful create. */
+async function submitCompanyRegistration(payload: Record<string, string>) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
+  try {
+    const res = await fetch(`${getApiUrl()}/auth/register-company`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      message?: string | string[];
+      email?: string;
+      companyName?: string;
+    };
+    if (!res.ok) {
+      const msg = Array.isArray(data.message) ? data.message.join(', ') : data.message;
+      throw new Error(msg || `Registration failed (${res.status})`);
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export default function RegisterScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [isCompany, setIsCompany] = useState(mode === 'company');
+  const submittingRef = useRef(false);
   const setUser = useAuthStore((s) => s.setUser);
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
 
@@ -34,16 +78,50 @@ export default function RegisterScreen() {
     },
   });
 
+  const finishCompanySuccess = (message?: string) => {
+    showAlert(
+      'Request submitted',
+      message ||
+        'Your wholesale request was sent for admin approval. Continue as a guest — we will notify you when you can sign in.',
+    );
+    try {
+      router.replace('/(tabs)');
+    } catch {
+      /* ignore navigation errors after a successful submit */
+    }
+  };
+
   const onSubmit = async (data: z.infer<typeof registerSchema> & z.infer<typeof registerCompanySchema>) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
+
     try {
       if (isCompany) {
-        await authApi.registerCompany(data);
-        Alert.alert(
-          'Request submitted',
-          'Your wholesale request was sent for admin approval. You are not signed in yet — continue browsing as a guest. We will notify you when your account is accepted, then you can sign in.',
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }],
-        );
+        try {
+          const result = await submitCompanyRegistration({
+            email: data.email.trim(),
+            password: data.password,
+            fullName: data.fullName.trim(),
+            ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
+            companyName: data.companyName.trim(),
+            vatNumber: data.vatNumber.trim(),
+            businessAddress: data.businessAddress.trim(),
+            contactPerson: data.contactPerson.trim(),
+            companyPhone: data.companyPhone.trim(),
+          });
+          finishCompanySuccess(typeof result.message === 'string' ? result.message : undefined);
+        } catch (err: unknown) {
+          const message = apiErrorMessage(err, 'Registration failed');
+          // Duplicate tap / retry after success — request already exists on the server.
+          if (/already registered/i.test(message)) {
+            finishCompanySuccess(
+              'A wholesale request with this email was already submitted. Wait for admin approval, then sign in.',
+            );
+            return;
+          }
+          showAlert('Error', message);
+        }
         return;
       }
 
@@ -56,13 +134,12 @@ export default function RegisterScreen() {
       await tokenStorage.setItemAsync('accessToken', result.tokens.accessToken);
       await tokenStorage.setItemAsync('refreshToken', result.tokens.refreshToken);
       setUser(result.user);
-      Alert.alert('Success', 'Account created successfully!');
-      routeAfterAuth(result.user);
+      showAlert('Success', 'Account created successfully!', () => routeAfterAuth(result.user));
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Registration failed';
-      Alert.alert('Error', typeof message === 'string' ? message : 'Registration failed');
+      showAlert('Error', apiErrorMessage(err, 'Registration failed'));
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -70,16 +147,11 @@ export default function RegisterScreen() {
     setGoogleLoading(true);
     try {
       const user = await loginWithGoogle();
-      Alert.alert('Success', 'Account ready!');
-      routeAfterAuth(user);
+      showAlert('Success', 'Account ready!', () => routeAfterAuth(user));
     } catch (err: unknown) {
-      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      const message =
-        apiMessage ||
-        (err instanceof Error ? err.message : null) ||
-        'Google Sign-In failed';
-      if (typeof message === 'string' && message.includes('cancelled')) return;
-      Alert.alert('Error', typeof message === 'string' ? message : 'Google Sign-In failed');
+      const message = apiErrorMessage(err, 'Google Sign-In failed');
+      if (message.includes('cancelled')) return;
+      showAlert('Error', message);
     } finally {
       setGoogleLoading(false);
     }
@@ -113,8 +185,15 @@ export default function RegisterScreen() {
           <AppInput label="Phone" value={value || ''} onChangeText={onChange} keyboardType="phone-pad" />
         )} />
         <Controller control={control} name="password" render={({ field: { onChange, value } }) => (
-          <AppInput label="Password" value={value} onChangeText={onChange} secureTextEntry error={errors.password?.message} />
+          <AppInput
+            label="Password"
+            value={value}
+            onChangeText={onChange}
+            secureTextEntry
+            error={errors.password?.message}
+          />
         )} />
+        <Text style={styles.hint}>Password must be at least 6 characters. No other restrictions.</Text>
 
         {isCompany && (
           <>
@@ -172,6 +251,12 @@ const styles = StyleSheet.create({
   companyIntro: {
     ...typography.bodySmall,
     color: colors.mutedText,
+    marginBottom: spacing.md,
+  },
+  hint: {
+    ...typography.caption,
+    color: colors.mutedText,
+    marginTop: -spacing.sm,
     marginBottom: spacing.md,
   },
   toggle: { flexDirection: 'row', marginBottom: spacing.lg, gap: spacing.sm },

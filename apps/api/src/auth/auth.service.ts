@@ -12,7 +12,8 @@ export class AuthService {
   ) {}
 
   async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 12);
+    // Cost 10 is still strong; 12 was routinely 15–25s on Windows and tripped the mobile client timeout.
+    return bcrypt.hash(password, 10);
   }
 
   async comparePassword(password: string, hash: string): Promise<boolean> {

@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { OrdersService } from '../orders/orders.service';
 import { CreateDeliveryAgentDto } from './dto/admin.dto';
@@ -24,11 +24,13 @@ export class AdminController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('role') role?: string,
+    @Query('status') status?: string,
   ) {
     return this.adminService.getUsers({
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
       role,
+      status,
     });
   }
 
@@ -40,6 +42,19 @@ export class AdminController {
   @Patch('users/:id/deactivate')
   deactivateUser(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.deactivateUser(id);
+  }
+
+  @Delete('users/rejected')
+  deleteAllRejectedUsers(@CurrentUser('sub') adminId: string) {
+    return this.adminService.deleteAllRejectedCompanyUsers(adminId);
+  }
+
+  @Delete('users/:id')
+  deleteUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('sub') adminId: string,
+  ) {
+    return this.adminService.deleteUser(id, adminId);
   }
 
   @Get('company-accounts')

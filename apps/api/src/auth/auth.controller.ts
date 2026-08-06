@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, HttpCode } from '@nestjs/common';
 import { AuthUsersService } from './auth-users.service';
 import { LoginDto, RegisterDto, RegisterCompanyDto, RefreshTokenDto, GoogleAuthDto } from './dto/auth.dto';
 import { Public } from '../common/decorators/roles.decorator';
@@ -17,6 +17,7 @@ export class AuthController {
 
   @Public()
   @Post('register-company')
+  @HttpCode(200)
   registerCompany(@Body() dto: RegisterCompanyDto) {
     return this.authUsersService.registerCompany(dto);
   }

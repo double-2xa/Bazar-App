@@ -923,6 +923,16 @@ input, select, textarea {
   gap: 10px;
 }
 
+.dash-widget-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.dash-widget-section .dash-section-header {
+  margin-bottom: 10px;
+}
+
 .dash-widget {
   background: var(--surface);
   border: 1px solid var(--border);

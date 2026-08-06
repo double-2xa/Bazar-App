@@ -277,6 +277,10 @@ export interface DashboardSummary {
   codUnpaidAmount: number;
   pendingCompanyApprovalsCount: number;
   lowStockProductsCount: number;
+  /** Products with zero stock */
+  soldOutProductsCount: number;
+  /** Products with stock remaining */
+  inStockProductsCount: number;
   activeDeliveryAgentsCount: number;
   completedOrders: number;
 }

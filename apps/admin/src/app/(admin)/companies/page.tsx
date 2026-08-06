@@ -1,8 +1,10 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/services/api';
+
+type CompanyTab = 'pending' | 'rejected' | 'active' | 'inactive';
 
 type CompanyRow = {
   id: string;
@@ -11,60 +13,213 @@ type CompanyRow = {
   contactPerson: string;
   companyPhone?: string | null;
   status: string;
-  user?: { email: string; phone?: string | null };
+  user?: {
+    id: string;
+    email: string;
+    fullName?: string;
+    phone?: string | null;
+    isActive?: boolean;
+  };
 };
 
-function CompaniesPageContent() {
-  const searchParams = useSearchParams();
-  const initialStatus = searchParams.get('status') || '';
-  const [statusFilter, setStatusFilter] = useState(initialStatus);
-  const [companies, setCompanies] = useState<CompanyRow[]>([]);
+const TABS: { id: CompanyTab; label: string }[] = [
+  { id: 'pending', label: 'Pending' },
+  { id: 'rejected', label: 'Rejected' },
+  { id: 'active', label: 'Active' },
+  { id: 'inactive', label: 'Inactive' },
+];
 
-  const load = () =>
-    api
-      .get('/admin/company-accounts', {
-        params: statusFilter ? { status: statusFilter } : undefined,
-      })
-      .then((r) => setCompanies(r.data));
+function CompaniesPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initial = (searchParams.get('status') as CompanyTab | null) || 'pending';
+  const [tab, setTab] = useState<CompanyTab>(
+    TABS.some((t) => t.id === initial) ? initial : 'pending',
+  );
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
+  const [counts, setCounts] = useState<Record<CompanyTab, number>>({
+    pending: 0,
+    rejected: 0,
+    active: 0,
+    inactive: 0,
+  });
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CompanyRow | null>(null);
+  const [removeAllOpen, setRemoveAllOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadCounts = useCallback(async () => {
+    const entries = await Promise.all(
+      TABS.map(async (t) => {
+        const r = await api.get('/admin/company-accounts', { params: { status: t.id } });
+        return [t.id, (r.data as CompanyRow[]).length] as const;
+      }),
+    );
+    setCounts(Object.fromEntries(entries) as Record<CompanyTab, number>);
+  }, []);
+
+  const load = useCallback(async () => {
+    const r = await api.get('/admin/company-accounts', { params: { status: tab } });
+    setCompanies(r.data);
+  }, [tab]);
 
   useEffect(() => {
-    setStatusFilter(searchParams.get('status') || '');
+    const fromUrl = searchParams.get('status') as CompanyTab | null;
+    if (fromUrl && TABS.some((t) => t.id === fromUrl) && fromUrl !== tab) {
+      setTab(fromUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [load]);
+
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
+
+  const selectTab = (next: CompanyTab) => {
+    setTab(next);
+    router.replace(`/companies?status=${next}`);
+  };
+
+  const refresh = async () => {
+    await Promise.all([load(), loadCounts()]);
+  };
 
   const approve = async (id: string) => {
-    await api.patch(`/admin/company-accounts/${id}/approve`);
-    load();
+    setBusyId(id);
+    try {
+      await api.patch(`/admin/company-accounts/${id}/approve`);
+      await refresh();
+    } finally {
+      setBusyId(null);
+    }
   };
+
   const reject = async (id: string) => {
-    await api.patch(`/admin/company-accounts/${id}/reject`);
-    load();
+    setBusyId(id);
+    try {
+      await api.patch(`/admin/company-accounts/${id}/reject`);
+      await refresh();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const toggleActive = async (userId: string, isActive: boolean) => {
+    setBusyId(userId);
+    try {
+      await api.patch(`/admin/users/${userId}/${isActive ? 'deactivate' : 'activate'}`);
+      await refresh();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget?.user?.id) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await api.delete(`/admin/users/${deleteTarget.user.id}`);
+      setDeleteTarget(null);
+      await refresh();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to delete company';
+      setError(typeof message === 'string' ? message : 'Failed to delete company');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const confirmRemoveAllRejected = async () => {
+    setDeleting(true);
+    setError(null);
+    try {
+      await api.delete('/admin/users/rejected');
+      setRemoveAllOpen(false);
+      await refresh();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to remove rejected companies';
+      setError(typeof message === 'string' ? message : 'Failed to remove rejected companies');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const statusBadge = () => {
+    if (tab === 'pending') return <span className="badge badge-attention">Pending</span>;
+    if (tab === 'rejected') return <span className="badge badge-danger">Rejected</span>;
+    if (tab === 'active') return <span className="badge badge-success">Active</span>;
+    return <span className="badge badge-danger">Inactive</span>;
   };
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>Company Accounts</h1>
-          <p style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: 14 }}>
-            Approve pending wholesale signups so the company can access the store. Rejected accounts stay locked out.
-          </p>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>Company Accounts</h1>
+        <div className="dash-tabs">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`dash-tabs__btn${tab === t.id ? ' dash-tabs__btn--active' : ''}`}
+              onClick={() => selectTab(t.id)}
+            >
+              {t.label}
+              <span style={{ marginLeft: 6, opacity: 0.7 }}>({counts[t.id]})</span>
+            </button>
+          ))}
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}
-        >
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
       </div>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          marginBottom: 16,
+        }}
+      >
+        <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>
+          {tab === 'pending' && 'Wholesale signups waiting for admin approval.'}
+          {tab === 'rejected' && 'Wholesale applications that were not approved.'}
+          {tab === 'active' && 'Approved companies that can sign in and use wholesale pricing.'}
+          {tab === 'inactive' && 'Approved companies that were deactivated.'}
+        </p>
+        {tab === 'rejected' && counts.rejected > 0 ? (
+          <button
+            type="button"
+            className="btn btn-danger"
+            style={{ padding: '6px 14px', fontSize: 13 }}
+            onClick={() => {
+              setError(null);
+              setRemoveAllOpen(true);
+            }}
+          >
+            Remove all rejected
+          </button>
+        ) : null}
+      </div>
+
       <div className="card" style={{ padding: 0 }}>
         <table className="table">
           <thead>
@@ -78,53 +233,144 @@ function CompaniesPageContent() {
             </tr>
           </thead>
           <tbody>
-            {companies.map((c) => (
-              <tr key={c.id}>
-                <td>
-                  <div style={{ fontWeight: 500 }}>{c.companyName}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.user?.email}</div>
-                </td>
-                <td>{c.vatNumber}</td>
-                <td>{c.contactPerson}</td>
-                <td>{c.companyPhone || c.user?.phone || '—'}</td>
-                <td>
-                  <span
-                    className={`badge ${
-                      c.status === 'approved'
-                        ? 'badge-success'
-                        : c.status === 'pending'
-                          ? 'badge-warning'
-                          : 'badge-danger'
-                    }`}
-                  >
-                    {c.status}
-                  </span>
-                </td>
-                <td style={{ display: 'flex', gap: 8 }}>
-                  {c.status === 'pending' && (
-                    <>
-                      <button
-                        className="btn btn-primary"
-                        style={{ padding: '4px 12px', fontSize: 12 }}
-                        onClick={() => approve(c.id)}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="btn btn-danger"
-                        style={{ padding: '4px 12px', fontSize: 12 }}
-                        onClick={() => reject(c.id)}
-                      >
-                        Reject
-                      </button>
-                    </>
-                  )}
+            {companies.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>
+                  No companies in this tab.
                 </td>
               </tr>
-            ))}
+            ) : (
+              companies.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <div style={{ fontWeight: 500 }}>{c.companyName}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.user?.email}</div>
+                  </td>
+                  <td>{c.vatNumber}</td>
+                  <td>{c.contactPerson}</td>
+                  <td>{c.companyPhone || c.user?.phone || '—'}</td>
+                  <td>{statusBadge()}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {tab === 'pending' ? (
+                        <>
+                          <button
+                            className="btn btn-primary"
+                            style={{ padding: '4px 12px', fontSize: 12 }}
+                            disabled={busyId === c.id}
+                            onClick={() => approve(c.id)}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            style={{ padding: '4px 12px', fontSize: 12 }}
+                            disabled={busyId === c.id}
+                            onClick={() => reject(c.id)}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : null}
+
+                      {(tab === 'active' || tab === 'inactive') && c.user?.id ? (
+                        <button
+                          className="btn btn-outline"
+                          style={{ padding: '4px 12px', fontSize: 12 }}
+                          disabled={busyId === c.user.id}
+                          onClick={() => toggleActive(c.user!.id, tab === 'active')}
+                        >
+                          {tab === 'active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                      ) : null}
+
+                      {tab === 'rejected' && c.user?.id ? (
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '4px 12px', fontSize: 12 }}
+                          onClick={() => {
+                            setError(null);
+                            setDeleteTarget(c);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      {deleteTarget ? (
+        <div className="modal-overlay" onClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginTop: 0, fontSize: 20 }}>Delete company?</h2>
+            <p style={{ color: 'var(--muted)', marginBottom: 8 }}>
+              This permanently removes{' '}
+              <strong style={{ color: 'var(--text)' }}>{deleteTarget.companyName}</strong> (
+              {deleteTarget.user?.email}). This cannot be undone.
+            </p>
+            {error ? (
+              <p style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 16 }}>{error}</p>
+            ) : null}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={deleting}
+                onClick={confirmDelete}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {removeAllOpen ? (
+        <div className="modal-overlay" onClick={() => !deleting && setRemoveAllOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginTop: 0, fontSize: 20 }}>Remove all rejected companies?</h2>
+            <p style={{ color: 'var(--muted)', marginBottom: 8 }}>
+              This permanently deletes all <strong style={{ color: 'var(--text)' }}>{counts.rejected}</strong>{' '}
+              rejected company account(s). This cannot be undone.
+            </p>
+            {error ? (
+              <p style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 16 }}>{error}</p>
+            ) : null}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={deleting}
+                onClick={() => setRemoveAllOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={deleting}
+                onClick={confirmRemoveAllRejected}
+              >
+                {deleting ? 'Removing…' : 'Remove all'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -61,6 +61,8 @@ export class AuthUsersService {
         phone: dto.phone,
         role: 'company',
         authProvider: 'local',
+        // Inactive until an admin approves the wholesale request
+        isActive: false,
         companyProfile: {
           create: {
             companyName: dto.companyName,
@@ -75,12 +77,11 @@ export class AuthUsersService {
       include: { companyProfile: true },
     });
 
-    // Do not issue a session — company waits for admin approval, then signs in.
     return {
       message:
         'Wholesale request submitted. You will be notified when an admin approves your account. You can sign in after approval.',
       email: user.email,
-      companyName: user.companyProfile!.companyName,
+      companyName: dto.companyName,
     };
   }
 
@@ -90,7 +91,7 @@ export class AuthUsersService {
       include: { companyProfile: true },
     });
 
-    if (!user || !user.isActive) {
+    if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -113,6 +114,10 @@ export class AuthUsersService {
           'Your wholesale application was not approved. Contact the store for help.',
         );
       }
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const tokens = await this.tokenService.generateTokens(user.id, user.email, user.role);
