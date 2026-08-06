@@ -75,8 +75,13 @@ export class AuthUsersService {
       include: { companyProfile: true },
     });
 
-    const tokens = await this.tokenService.generateTokens(user.id, user.email, user.role);
-    return { user: sanitizeUser(user), tokens };
+    // Do not issue a session — company waits for admin approval, then signs in.
+    return {
+      message:
+        'Wholesale request submitted. You will be notified when an admin approves your account. You can sign in after approval.',
+      email: user.email,
+      companyName: user.companyProfile!.companyName,
+    };
   }
 
   async login(dto: LoginDto) {
@@ -95,6 +100,20 @@ export class AuthUsersService {
 
     const valid = await this.tokenService.comparePassword(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
+
+    if (user.role === 'company') {
+      const status = user.companyProfile?.status;
+      if (status === 'pending') {
+        throw new UnauthorizedException(
+          'Your wholesale account is still pending admin approval. You will be notified when it is accepted.',
+        );
+      }
+      if (status === 'rejected') {
+        throw new UnauthorizedException(
+          'Your wholesale application was not approved. Contact the store for help.',
+        );
+      }
+    }
 
     const tokens = await this.tokenService.generateTokens(user.id, user.email, user.role);
     return { user: sanitizeUser(user), tokens };

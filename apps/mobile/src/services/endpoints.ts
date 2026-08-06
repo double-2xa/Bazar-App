@@ -6,6 +6,7 @@ import type {
   Address,
   UserPublic,
   LoginResponse,
+  CompanyRegisterResponse,
   DeliveryOrdersGrouped,
   AppNotification,
 } from '@doublea/shared';
@@ -27,7 +28,7 @@ export const authApi = {
   register: (data: { email: string; password: string; fullName: string; phone?: string }) =>
     api.post<LoginResponse>('/auth/register', data).then((r) => r.data),
   registerCompany: (data: Record<string, string>) =>
-    api.post<LoginResponse>('/auth/register-company', data).then((r) => r.data),
+    api.post<CompanyRegisterResponse>('/auth/register-company', data).then((r) => r.data),
   me: () => api.get<UserPublic>('/auth/me').then((r) => r.data),
   logout: (refreshToken: string) =>
     api.post('/auth/logout', { refreshToken }).then((r) => r.data),

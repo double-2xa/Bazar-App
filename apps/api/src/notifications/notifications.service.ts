@@ -13,6 +13,8 @@ export type CompanyNotifyRecipient = {
 
 export const NOTIFICATION_TYPES = {
   deliveryOrderAvailable: 'delivery_order_available',
+  companyAccountApproved: 'company_account_approved',
+  companyAccountRejected: 'company_account_rejected',
 } as const;
 
 /**
@@ -26,13 +28,26 @@ export class NotificationsService {
   constructor(private prisma: PrismaService) {}
 
   async notifyCompanyStatusChange(
-    recipient: CompanyNotifyRecipient,
+    recipient: CompanyNotifyRecipient & { userId: string },
     status: CompanyNotifyStatus,
   ): Promise<void> {
-    const message =
-      status === 'approved'
-        ? `Your wholesale account for ${recipient.companyName} is now activated.`
-        : `Your wholesale application for ${recipient.companyName} was not approved.`;
+    const approved = status === 'approved';
+    const title = approved ? 'Wholesale account approved' : 'Wholesale application update';
+    const message = approved
+      ? `Your wholesale account for ${recipient.companyName} is now activated. You can sign in to shop.`
+      : `Your wholesale application for ${recipient.companyName} was not approved.`;
+
+    await this.prisma.notification.create({
+      data: {
+        userId: recipient.userId,
+        type: approved
+          ? NOTIFICATION_TYPES.companyAccountApproved
+          : NOTIFICATION_TYPES.companyAccountRejected,
+        title,
+        body: message,
+        data: { status, companyName: recipient.companyName },
+      },
+    });
 
     // TODO(discuss): wire email provider and/or WhatsApp Business API
     this.logger.log(

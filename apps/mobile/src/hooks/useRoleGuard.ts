@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
+import { isCompanyAwaitingAccess } from '@/utils/companyAccess';
 
 type AllowedRole = 'shopper' | 'delivery_agent';
 
@@ -28,6 +29,11 @@ export function useRoleGuard({ allowed }: UseRoleGuardOptions) {
 
     if (allowed === 'shopper' && user?.role === 'delivery_agent') {
       router.replace('/(delivery)');
+      return;
+    }
+
+    if (allowed === 'shopper' && isCompanyAwaitingAccess(user)) {
+      router.replace('/company-pending');
     }
   }, [isLoading, isAuthenticated, user, allowed]);
 }

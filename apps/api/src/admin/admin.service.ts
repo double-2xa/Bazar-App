@@ -615,6 +615,7 @@ export class AdminService {
 
     await this.notifications.notifyCompanyStatusChange(
       {
+        userId: profile.user.id,
         email: profile.user.email,
         phone: profile.companyPhone || profile.user.phone,
         fullName: profile.user.fullName,
@@ -635,6 +636,7 @@ export class AdminService {
 
     await this.notifications.notifyCompanyStatusChange(
       {
+        userId: profile.user.id,
         email: profile.user.email,
         phone: profile.companyPhone || profile.user.phone,
         fullName: profile.user.fullName,

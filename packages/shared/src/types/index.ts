@@ -411,6 +411,13 @@ export interface LoginResponse {
   tokens: AuthTokens;
 }
 
+/** Company signup creates a pending account without signing the user in. */
+export interface CompanyRegisterResponse {
+  message: string;
+  email: string;
+  companyName: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

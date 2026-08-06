@@ -46,8 +46,7 @@ export default function CompanyProfileScreen() {
         <Badge label={statusMeta.label} variant={statusMeta.variant} />
         {status === 'pending' ? (
           <Text style={styles.pendingCopy}>
-            Your wholesale application is being reviewed. Company pricing unlocks after approval.
-            You will be notified by email or WhatsApp once an admin activates your account.
+            Your wholesale application is being reviewed by an admin. Store access unlocks after approval.
           </Text>
         ) : null}
       </GlassCard>

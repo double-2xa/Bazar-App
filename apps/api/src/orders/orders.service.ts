@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { decimalToNumber, generateOrderNumber } from "../common/utils";
+import { decimalToNumber, generateOrderNumber, assertCompanyCanShop } from "../common/utils";
 import {
   assertAdminStatusTransition,
   assertAssignFromStatus,
@@ -114,6 +114,7 @@ export class OrdersService {
       where: { id: userId },
       include: { companyProfile: true },
     });
+    assertCompanyCanShop(user);
 
     let subtotal = 0;
     const orderItems: {

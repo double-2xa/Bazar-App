@@ -44,6 +44,7 @@ export default function RootLayout() {
           <Stack.Screen name="add-address" options={{ title: 'Add Address' }} />
           <Stack.Screen name="wishlist" options={{ title: 'Wishlist' }} />
           <Stack.Screen name="company-profile" options={{ title: 'Company Profile' }} />
+          <Stack.Screen name="company-pending" options={{ headerShown: false }} />
           <Stack.Screen name="delivery-order/[id]" options={{ title: 'Delivery Details' }} />
           <Stack.Screen name="delivery-completed" options={{ headerShown: false }} />
         </Stack>

@@ -126,7 +126,7 @@ export default function DashboardPage() {
         <DashboardWidget
           title={ADMIN_OPS_LABELS.waitingApproval}
           value={summary.pendingCompanyApprovalsCount}
-          href="/companies"
+          href="/companies?status=pending"
           tone={summary.pendingCompanyApprovalsCount > 0 ? 'attention' : 'default'}
           compact
         />

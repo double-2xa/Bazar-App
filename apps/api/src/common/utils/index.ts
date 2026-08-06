@@ -1,4 +1,5 @@
 import { User, CompanyProfile } from '@prisma/client';
+import { ForbiddenException } from '@nestjs/common';
 
 type UserWithCompany = User & { companyProfile?: CompanyProfile | null };
 
@@ -7,6 +8,21 @@ export function sanitizeUser(user: UserWithCompany) {
     googleId?: string | null;
   };
   return rest;
+}
+
+/** Blocks shopping for company accounts that are still pending or were rejected. */
+export function assertCompanyCanShop(user: UserWithCompany | null | undefined) {
+  if (!user || user.role !== 'company') return;
+  const status = user.companyProfile?.status;
+  if (status === 'approved') return;
+  if (status === 'rejected') {
+    throw new ForbiddenException(
+      'Your wholesale application was not approved. Contact the store for help.',
+    );
+  }
+  throw new ForbiddenException(
+    'Your wholesale account is pending admin approval. You can shop once it is approved.',
+  );
 }
 
 export function decimalToNumber(value: { toNumber?: () => number } | number | string): number {

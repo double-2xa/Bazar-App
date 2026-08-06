@@ -11,6 +11,7 @@ import { authApi } from '@/services/endpoints';
 import { tokenStorage } from '@/services/tokenStorage';
 import { useAuthStore } from '@/store/authStore';
 import { AppButton, AppInput } from '@/components';
+import { routeAfterAuth } from '@/utils/routeAfterAuth';
 
 export default function RegisterScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
@@ -36,27 +37,30 @@ export default function RegisterScreen() {
   const onSubmit = async (data: z.infer<typeof registerSchema> & z.infer<typeof registerCompanySchema>) => {
     setLoading(true);
     try {
-      const result = isCompany
-        ? await authApi.registerCompany(data)
-        : await authApi.register({
-            email: data.email,
-            password: data.password,
-            fullName: data.fullName,
-            phone: data.phone,
-          });
+      if (isCompany) {
+        await authApi.registerCompany(data);
+        Alert.alert(
+          'Request submitted',
+          'Your wholesale request was sent for admin approval. You are not signed in yet — continue browsing as a guest. We will notify you when your account is accepted, then you can sign in.',
+          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }],
+        );
+        return;
+      }
+
+      const result = await authApi.register({
+        email: data.email,
+        password: data.password,
+        fullName: data.fullName,
+        phone: data.phone,
+      });
       await tokenStorage.setItemAsync('accessToken', result.tokens.accessToken);
       await tokenStorage.setItemAsync('refreshToken', result.tokens.refreshToken);
       setUser(result.user);
-      Alert.alert(
-        'Success',
-        isCompany
-          ? 'Company request submitted. You will be notified when an admin activates wholesale pricing.'
-          : 'Account created successfully!',
-      );
-      router.replace('/(tabs)');
+      Alert.alert('Success', 'Account created successfully!');
+      routeAfterAuth(result.user);
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Registration failed';
-      Alert.alert('Error', message);
+      Alert.alert('Error', typeof message === 'string' ? message : 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -65,9 +69,9 @@ export default function RegisterScreen() {
   const onGoogle = async () => {
     setGoogleLoading(true);
     try {
-      await loginWithGoogle();
+      const user = await loginWithGoogle();
       Alert.alert('Success', 'Account ready!');
-      router.replace('/(tabs)');
+      routeAfterAuth(user);
     } catch (err: unknown) {
       const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       const message =
@@ -86,7 +90,7 @@ export default function RegisterScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {isCompany ? (
           <Text style={styles.companyIntro}>
-            Submit a wholesale account request. An admin must approve it before company pricing is enabled.
+            Submit a wholesale account request. You stay signed out until an admin approves it — we will notify you when you can sign in.
           </Text>
         ) : null}
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,34 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
 import { AppButton, AppInput } from '@/components';
-import type { UserPublic } from '@doublea/shared';
-
-function routeAfterAuth(user: UserPublic) {
-  if (user.role === 'admin') {
-    Alert.alert(
-      'Admin Account',
-      'Please use the admin dashboard website to manage the store.',
-      [
-        {
-          text: 'Open Dashboard',
-          onPress: () => Linking.openURL(process.env.EXPO_PUBLIC_ADMIN_URL || 'http://localhost:3000'),
-        },
-        {
-          text: 'OK',
-          onPress: () => {
-            useAuthStore.getState().logout();
-          },
-        },
-      ],
-    );
-    return;
-  }
-  if (user.role === 'delivery_agent') {
-    router.replace('/(delivery)');
-    return;
-  }
-  router.replace('/(tabs)');
-}
+import { routeAfterAuth } from '@/utils/routeAfterAuth';
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);

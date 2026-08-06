@@ -28,6 +28,10 @@ function CompaniesPageContent() {
       .then((r) => setCompanies(r.data));
 
   useEffect(() => {
+    setStatusFilter(searchParams.get('status') || '');
+  }, [searchParams]);
+
+  useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
@@ -47,7 +51,7 @@ function CompaniesPageContent() {
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>Company Accounts</h1>
           <p style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: 14 }}>
-            Review wholesale requests. Approving activates company pricing and queues a notify stub (email/WhatsApp TBD).
+            Approve pending wholesale signups so the company can access the store. Rejected accounts stay locked out.
           </p>
         </div>
         <select

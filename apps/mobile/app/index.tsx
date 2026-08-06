@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { BRAND } from '@doublea/shared';
 import { colors, typography, spacing } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
+import { isCompanyAwaitingAccess } from '@/utils/companyAccess';
 
 export default function SplashScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -26,6 +27,8 @@ export default function SplashScreen() {
       } else if (user?.role === 'admin') {
         useAuthStore.getState().logout();
         router.replace('/(tabs)');
+      } else if (isCompanyAwaitingAccess(user)) {
+        router.replace('/company-pending');
       } else {
         router.replace('/(tabs)');
       }
