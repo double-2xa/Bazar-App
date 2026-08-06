@@ -22,9 +22,11 @@ import {
   AppButton,
   Badge,
   DeliveryMap,
+  EmptyState,
   GlassCard,
   OrderStatusStepper,
   OrderTimeline,
+  SignatureImage,
 } from '@/components';
 
 function formatAddressLine(order: {
@@ -300,6 +302,18 @@ export default function OrderDetailsScreen() {
           {order.deliveryProof.deliveryNote ? (
             <Text style={styles.muted}>{order.deliveryProof.deliveryNote}</Text>
           ) : null}
+          {order.deliveryProof.agentSignatureDataUrl ? (
+            <View style={styles.sigBlock}>
+              <Text style={styles.sigLabel}>Driver signature</Text>
+              <SignatureImage uri={order.deliveryProof.agentSignatureDataUrl} />
+            </View>
+          ) : null}
+          {order.deliveryProof.clientSignatureDataUrl ? (
+            <View style={styles.sigBlock}>
+              <Text style={styles.sigLabel}>Your signature</Text>
+              <SignatureImage uri={order.deliveryProof.clientSignatureDataUrl} />
+            </View>
+          ) : null}
         </GlassCard>
       )}
 
@@ -353,4 +367,6 @@ const styles = StyleSheet.create({
   totalLabel: { ...typography.body, fontWeight: '600', color: colors.text },
   totalValue: { ...typography.h3, color: colors.primary },
   cancelButton: { marginTop: spacing.sm },
+  sigBlock: { marginTop: spacing.md },
+  sigLabel: { ...typography.caption, color: colors.mutedText, marginBottom: 4, fontWeight: '600' },
 });

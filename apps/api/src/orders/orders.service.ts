@@ -8,9 +8,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { decimalToNumber, generateOrderNumber } from '../common/utils';
 import { assertAdminStatusTransition, assertAssignFromStatus, assertRejectFromStatus, assertNotTerminal, assertUnassignFromStatus, isReassignment } from '../common/utils/order-status';
 import { CreateOrderDto } from './dto/order.dto';
-
-const DEFAULT_DELIVERY_FEE = 5.99;
-const DEFAULT_TAX_RATE = 0.08;
+import {
+  DEFAULT_TAX_RATE,
+  calculateDeliveryFee,
+  STORE_ORIGIN,
+} from '@doublea/shared';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const ORDER_DETAIL_INCLUDE = {
   items: true,
@@ -23,7 +26,10 @@ const ORDER_DETAIL_INCLUDE = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private formatOrder(order: Record<string, unknown>) {
     return {
@@ -48,6 +54,36 @@ export class OrdersService {
     });
     if (!order) throw new NotFoundException('Order not found');
     return this.formatOrder(order as unknown as Record<string, unknown>);
+  }
+
+  private resolveStoreOrigin() {
+    const lat = process.env.STORE_LAT ? parseFloat(process.env.STORE_LAT) : STORE_ORIGIN.lat;
+    const lng = process.env.STORE_LNG ? parseFloat(process.env.STORE_LNG) : STORE_ORIGIN.lng;
+    return {
+      originLat: Number.isFinite(lat) ? lat : STORE_ORIGIN.lat,
+      originLng: Number.isFinite(lng) ? lng : STORE_ORIGIN.lng,
+    };
+  }
+
+  private quoteDeliveryForAddress(address: {
+    latitude?: number | null;
+    longitude?: number | null;
+    city?: string | null;
+  }) {
+    return calculateDeliveryFee({
+      latitude: address.latitude,
+      longitude: address.longitude,
+      city: address.city,
+      ...this.resolveStoreOrigin(),
+    });
+  }
+
+  async getDeliveryQuote(userId: string, addressId: string) {
+    const address = await this.prisma.address.findFirst({
+      where: { id: addressId, userId },
+    });
+    if (!address) throw new NotFoundException('Address not found');
+    return this.quoteDeliveryForAddress(address);
   }
 
   async create(userId: string, userRole: string, dto: CreateOrderDto) {
@@ -124,7 +160,8 @@ export class OrdersService {
       }
     }
 
-    const deliveryFee = DEFAULT_DELIVERY_FEE;
+    const deliveryQuote = this.quoteDeliveryForAddress(address);
+    const deliveryFee = deliveryQuote.deliveryFee;
     const taxable = subtotal - discountAmount;
     const taxAmount = taxable * DEFAULT_TAX_RATE;
     const totalAmount = taxable + deliveryFee + taxAmount;
@@ -133,7 +170,10 @@ export class OrdersService {
       for (const item of orderItems) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stockQuantity: { decrement: item.quantity } },
+          data: {
+            stockQuantity: { decrement: item.quantity },
+            soldCount: { increment: item.quantity },
+          },
         });
       }
 
@@ -170,6 +210,12 @@ export class OrdersService {
 
       return created;
     });
+
+    try {
+      await this.notifications.notifyDeliveryAgentsNewOrder(order);
+    } catch {
+      /* order already created — notification failure must not fail checkout */
+    }
 
     return this.formatOrder(order as unknown as Record<string, unknown>);
   }
@@ -223,7 +269,10 @@ export class OrdersService {
       for (const item of order.items) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stockQuantity: { increment: item.quantity } },
+          data: {
+            stockQuantity: { increment: item.quantity },
+            soldCount: { decrement: item.quantity },
+          },
         });
       }
       return tx.order.update({

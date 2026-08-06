@@ -82,6 +82,12 @@ export default function LoginScreen() {
             Register
           </Text>
         </Text>
+        <Text style={styles.footer}>
+          Wholesale buyer?{' '}
+          <Text style={styles.link} onPress={() => router.push('/(auth)/register?mode=company')}>
+            Sign in as company
+          </Text>
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );

@@ -22,6 +22,14 @@ export class OrdersController {
     return this.ordersService.getMyOrders(userId);
   }
 
+  @Get('delivery-quote')
+  getDeliveryQuote(
+    @CurrentUser('sub') userId: string,
+    @Query('addressId', ParseUUIDPipe) addressId: string,
+  ) {
+    return this.ordersService.getDeliveryQuote(userId, addressId);
+  }
+
   @Get(':id')
   getOrder(
     @CurrentUser('sub') userId: string,

@@ -166,7 +166,7 @@ export default function DashboardPage() {
         <RecentOrdersPanel orders={data.recentOrders} />
         <BusyDriversPanel drivers={data.busyDrivers} />
         <TopProductsPanel topProducts={data.topProducts} lowStockProducts={data.lowStockProducts} />
-        <PendingCompaniesPanel companies={data.pendingCompanies} />
+        <PendingCompaniesPanel companies={data.pendingCompanies} onChanged={load} />
       </section>
 
       <section className="dash-deep-grid" aria-label="Deeper operations">

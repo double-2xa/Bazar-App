@@ -1,20 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+﻿import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Image,
   FlatList,
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { Category, Product } from '@doublea/shared';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { BRAND } from '@doublea/shared';
-import { productsApi, categoriesApi, bannersApi } from '@/services/endpoints';
+import { productsApi, categoriesApi } from '@/services/endpoints';
 import {
   ProductCard,
   CategoryCard,
@@ -24,31 +24,107 @@ import {
 } from '@/components';
 import { useAuthStore } from '@/store/authStore';
 
+const CATEGORY_PREVIEW_LIMIT = 5;
+
+function ProductRail({
+  products,
+  seeMoreLabel,
+  onSeeMore,
+}: {
+  products: Product[];
+  seeMoreLabel?: string;
+  onSeeMore?: () => void;
+}) {
+  return (
+    <FlatList
+      horizontal
+      data={products}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => (
+        <View style={styles.railCard}>
+          <ProductCard product={item} onPress={() => router.push(`/product/${item.id}`)} />
+        </View>
+      )}
+      ListFooterComponent={
+        onSeeMore ? (
+          <TouchableOpacity style={styles.seeMoreCard} onPress={onSeeMore} activeOpacity={0.85}>
+            <View style={styles.seeMoreIcon}>
+              <Ionicons name="arrow-forward" size={22} color={colors.primary} />
+            </View>
+            <Text style={styles.seeMoreText}>{seeMoreLabel ?? 'See more'}</Text>
+          </TouchableOpacity>
+        ) : null
+      }
+      contentContainerStyle={styles.railList}
+      showsHorizontalScrollIndicator={false}
+    />
+  );
+}
+
+function CategoryProductSection({ category }: { category: Category }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['products', 'home-category', category.id],
+    queryFn: () => productsApi.getAll({ categoryId: category.id, limit: CATEGORY_PREVIEW_LIMIT }),
+  });
+
+  const products = data?.data ?? [];
+  if (!isLoading && products.length === 0) return null;
+
+  const openCategory = () => router.push(`/category/${category.slug}`);
+
+  return (
+    <View>
+      <SectionHeader title={category.name} actionLabel="See more" onAction={openCategory} />
+      {isLoading ? (
+        <Text style={styles.loadingRow}>Loading {category.name}…</Text>
+      ) : (
+        <ProductRail products={products} seeMoreLabel="See more" onSeeMore={openCategory} />
+      )}
+    </View>
+  );
+}
+
 export default function HomeScreen() {
+  const queryClient = useQueryClient();
   const { user, showCompanyPrice, setShowCompanyPrice } = useAuthStore();
   const isCompany = user?.role === 'company' && user.companyProfile?.status === 'approved';
 
-  const { data: categories, isLoading: catLoading } = useQuery({
+  const {
+    data: categories,
+    isLoading: catLoading,
+    refetch: refetchCategories,
+  } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesApi.getAll,
   });
 
-  const { data: featured, isLoading: featLoading } = useQuery({
+  const {
+    data: featured,
+    isLoading: featLoading,
+    refetch: refetchFeatured,
+  } = useQuery({
     queryKey: ['products', 'featured'],
     queryFn: () => productsApi.getAll({ featured: true, limit: 6 }),
   });
 
-  const { data: products, isLoading: prodLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['products', 'home'],
-    queryFn: () => productsApi.getAll({ limit: 10, sortBy: 'rating', sortOrder: 'desc' }),
+  const {
+    data: topSellers,
+    isLoading: topLoading,
+    refetch: refetchTopSellers,
+    isRefetching,
+  } = useQuery({
+    queryKey: ['products', 'top-sellers'],
+    queryFn: () => productsApi.getAll({ sortBy: 'sold', sortOrder: 'desc', limit: 6 }),
   });
 
-  const { data: banners } = useQuery({
-    queryKey: ['banners'],
-    queryFn: bannersApi.getAll,
-  });
+  const loading = catLoading || featLoading || topLoading;
 
-  const loading = catLoading || featLoading || prodLoading;
+  const refreshHome = () => {
+    void refetchCategories();
+    void refetchFeatured();
+    void refetchTopSellers();
+    void queryClient.invalidateQueries({ queryKey: ['products', 'home-category'] });
+  };
 
   if (loading) {
     return (
@@ -61,7 +137,9 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={refreshHome} tintColor={colors.primary} />
+        }
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
@@ -91,21 +169,11 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {banners && banners.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bannerScroll}>
-            {banners.map((banner: { id: string; imageUrl: string; title: string; subtitle?: string }) => (
-              <View key={banner.id} style={styles.bannerCard}>
-                <Image source={{ uri: banner.imageUrl }} style={styles.bannerImage} />
-                <View style={styles.bannerOverlay}>
-                  <Text style={styles.bannerTitle}>{banner.title}</Text>
-                  {banner.subtitle && <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>}
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-        )}
-
-        <SectionHeader title="Categories" actionLabel="See all" onAction={() => router.push('/(tabs)/search')} />
+        <SectionHeader
+          title="Categories"
+          actionLabel="See all"
+          onAction={() => router.push('/(tabs)/categories')}
+        />
         <FlatList
           horizontal
           data={categories}
@@ -117,34 +185,17 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
         />
 
-        <SectionHeader title="Featured" />
-        <FlatList
-          horizontal
-          data={featured?.data}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.featuredCard}>
-              <ProductCard
-                product={item}
-                onPress={() => router.push(`/product/${item.id}`)}
-              />
-            </View>
-          )}
-          contentContainerStyle={styles.featuredList}
-          showsHorizontalScrollIndicator={false}
-        />
+        <SectionHeader title="Top Sellers" />
+        <ProductRail products={topSellers?.data ?? []} />
 
-        <SectionHeader title="Recommended for You" />
-        <View style={styles.productGrid}>
-          {products?.data?.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onPress={() => router.push(`/product/${product.id}`)}
-            />
-          ))}
-        </View>
-        <View style={{ height: spacing.xl }} />
+        <SectionHeader title="Featured" />
+        <ProductRail products={featured?.data ?? []} />
+
+        {(categories ?? []).map((category) => (
+          <CategoryProductSection key={category.id} category={category} />
+        ))}
+
+        <View style={{ height: spacing.tabBarOffset }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -171,33 +222,35 @@ const styles = StyleSheet.create({
   },
   searchPlaceholder: { ...typography.body, color: colors.mutedText, flex: 1 },
   companyToggle: { paddingHorizontal: spacing.md },
-  bannerScroll: { marginTop: spacing.md },
-  bannerCard: {
-    width: 300,
-    height: 140,
-    marginLeft: spacing.md,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    ...shadows.md,
-  },
-  bannerImage: { width: '100%', height: '100%' },
-  bannerOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  bannerTitle: { ...typography.h3, color: colors.surface },
-  bannerSubtitle: { ...typography.bodySmall, color: colors.surface, opacity: 0.9 },
   categoryList: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
-  featuredList: { paddingHorizontal: spacing.md },
-  featuredCard: { marginRight: spacing.sm },
-  productGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  railList: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  railCard: { marginRight: spacing.sm },
+  seeMoreCard: {
+    width: 120,
+    marginRight: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+    ...shadows.sm,
+  },
+  seeMoreIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primaryTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  seeMoreText: { ...typography.bodySmall, color: colors.primary, fontWeight: '700' },
+  loadingRow: {
+    ...typography.bodySmall,
+    color: colors.mutedText,
     paddingHorizontal: spacing.md,
-    justifyContent: 'space-between',
+    marginBottom: spacing.md,
   },
 });

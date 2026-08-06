@@ -1,22 +1,32 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import type { Category } from '@doublea/shared';
 import { colors, borderRadius, typography, spacing, shadows } from '../theme';
 
 interface CategoryCardProps {
   category: Category;
   onPress: () => void;
+  /** compact = home strip; grid = Categories tab tiles */
+  variant?: 'compact' | 'grid';
 }
 
-export function CategoryCard({ category, onPress }: CategoryCardProps) {
+export function CategoryCard({ category, onPress, variant = 'compact' }: CategoryCardProps) {
+  const isGrid = variant === 'grid';
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={[styles.card, isGrid && styles.cardGrid]}
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={category.name}
+    >
       <Image
         source={{ uri: category.imageUrl || '' }}
-        style={styles.image}
+        style={[styles.image, isGrid && styles.imageGrid]}
         resizeMode="cover"
       />
-      <Text style={styles.name} numberOfLines={1}>
+      <Text style={[styles.name, isGrid && styles.nameGrid]} numberOfLines={2}>
         {category.name}
       </Text>
     </TouchableOpacity>
@@ -29,6 +39,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.sm,
   },
+  cardGrid: {
+    width: '48%',
+    marginRight: 0,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
+  },
   image: {
     width: 72,
     height: 72,
@@ -37,5 +58,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     ...shadows.sm,
   },
+  imageGrid: {
+    width: '100%',
+    height: 110,
+    marginBottom: spacing.sm,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   name: { ...typography.caption, color: colors.text, textAlign: 'center', fontWeight: '500' },
+  nameGrid: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    minHeight: 36,
+  },
 });

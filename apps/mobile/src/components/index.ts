@@ -21,3 +21,5 @@ export { DeliveryWorkflowBar } from './DeliveryWorkflowBar';
 export { GlassTabBarBackground, glassTabBarStyle } from './GlassTabBarBackground';
 export { OrderStatusStepper } from './OrderStatusStepper';
 export { OrderTimeline } from './OrderTimeline';
+export { SignaturePad } from './SignaturePad';
+export { SignatureImage } from './SignatureImage';

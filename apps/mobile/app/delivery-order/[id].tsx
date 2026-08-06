@@ -17,6 +17,8 @@ import {
   DeliveryWorkflowBar,
   FloatingActionBar,
   GlassCard,
+  SignaturePad,
+  SignatureImage,
 } from '@/components';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -42,6 +44,8 @@ export default function DeliveryOrderDetailsScreen() {
   const [deliveredToName, setDeliveredToName] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const [agentSignature, setAgentSignature] = useState<string | null>(null);
+  const [clientSignature, setClientSignature] = useState<string | null>(null);
 
   useRoleGuard({ allowed: 'delivery_agent' });
 
@@ -53,6 +57,7 @@ export default function DeliveryOrderDetailsScreen() {
 
   const invalidateOrder = () => {
     queryClient.invalidateQueries({ queryKey: ['delivery-orders'] });
+    queryClient.invalidateQueries({ queryKey: ['delivery-available'] });
     queryClient.invalidateQueries({ queryKey: ['delivery-order', id] });
   };
 
@@ -98,6 +103,8 @@ export default function DeliveryOrderDetailsScreen() {
       deliveryApi.markDelivered(id!, {
         deliveredToName: deliveredToName.trim() || undefined,
         deliveryNote: deliveryNote.trim() || undefined,
+        agentSignatureDataUrl: agentSignature!,
+        clientSignatureDataUrl: clientSignature!,
       }),
     onSuccess: async () => {
       await hapticSuccess();
@@ -106,6 +113,14 @@ export default function DeliveryOrderDetailsScreen() {
     },
     onError: (err) => Alert.alert('Error', getErrorMessage(err)),
   });
+
+  const confirmDeliver = () => {
+    if (!agentSignature || !clientSignature) {
+      Alert.alert('Signatures required', 'Both driver and client must sign before completing delivery.');
+      return;
+    }
+    deliveredMutation.mutate();
+  };
 
   const confirmReject = () => {
     Alert.alert(
@@ -275,7 +290,10 @@ export default function DeliveryOrderDetailsScreen() {
 
         {order.status === 'on_the_way' && (
           <GlassCard style={styles.cardGap}>
-            <Text style={styles.cardTitle}>Delivery proof (MVP)</Text>
+            <Text style={styles.cardTitle}>Delivery signatures</Text>
+            <Text style={styles.muted}>
+              Both the driver and the client must sign to confirm delivery.
+            </Text>
             <AppInput
               label="Delivered to (optional)"
               value={deliveredToName}
@@ -289,10 +307,8 @@ export default function DeliveryOrderDetailsScreen() {
               multiline
               placeholder="e.g. Left with reception"
             />
-            {/* TODO: Add photo capture and signature pad for delivery proof (post-MVP). */}
-            <Text style={styles.todoNote}>
-              Photo and signature capture are planned for a later release.
-            </Text>
+            <SignaturePad label="Driver signature" onChange={setAgentSignature} />
+            <SignaturePad label="Client signature" onChange={setClientSignature} />
           </GlassCard>
         )}
 
@@ -305,9 +321,18 @@ export default function DeliveryOrderDetailsScreen() {
             {order.deliveryProof.deliveryNote ? (
               <Text style={styles.muted}>{order.deliveryProof.deliveryNote}</Text>
             ) : null}
-            {!order.deliveryProof.deliveredToName && !order.deliveryProof.deliveryNote && (
-              <Text style={styles.muted}>Marked delivered without extra notes.</Text>
-            )}
+            {order.deliveryProof.agentSignatureDataUrl ? (
+              <View style={styles.sigBlock}>
+                <Text style={styles.sigLabel}>Driver signature</Text>
+                <SignatureImage uri={order.deliveryProof.agentSignatureDataUrl} />
+              </View>
+            ) : null}
+            {order.deliveryProof.clientSignatureDataUrl ? (
+              <View style={styles.sigBlock}>
+                <Text style={styles.sigLabel}>Client signature</Text>
+                <SignatureImage uri={order.deliveryProof.clientSignatureDataUrl} />
+              </View>
+            ) : null}
           </GlassCard>
         )}
       </ScrollView>
@@ -363,9 +388,13 @@ export default function DeliveryOrderDetailsScreen() {
         {order.status === 'on_the_way' && (
           <AppButton
             title="Mark delivered"
-            onPress={() => deliveredMutation.mutate()}
+            onPress={confirmDeliver}
             loading={deliveredMutation.isPending}
-            disabled={isActionPending && !deliveredMutation.isPending}
+            disabled={
+              (isActionPending && !deliveredMutation.isPending) ||
+              !agentSignature ||
+              !clientSignature
+            }
             fullWidth
           />
         )}
@@ -391,11 +420,12 @@ const styles = StyleSheet.create({
   cardGap: { marginTop: spacing.sm },
   cardTitle: { ...typography.body, fontWeight: '600', color: colors.text, marginBottom: spacing.sm },
   text: { ...typography.body, color: colors.text },
-  muted: { ...typography.bodySmall, color: colors.mutedText, marginTop: 2 },
+  muted: { ...typography.bodySmall, color: colors.mutedText, marginTop: 2, marginBottom: spacing.sm },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs },
   totalValue: { ...typography.h3, color: colors.primary },
-  todoNote: { ...typography.caption, color: colors.mutedText, marginTop: spacing.sm, fontStyle: 'italic' },
+  sigBlock: { marginTop: spacing.md },
+  sigLabel: { ...typography.caption, color: colors.mutedText, marginBottom: 4, fontWeight: '600' },
   doneRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   doneText: { ...typography.body, color: colors.success, fontWeight: '600' },
 });

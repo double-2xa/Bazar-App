@@ -40,6 +40,15 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(auth)/register')}
             style={{ marginTop: spacing.sm }}
           />
+          <AppButton
+            title="Sign in as Company"
+            variant="outline"
+            onPress={() => router.push('/(auth)/register?mode=company')}
+            style={{ marginTop: spacing.sm }}
+          />
+          <Text style={styles.companyHint}>
+            Request a wholesale account. An admin will review and activate it.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -106,6 +115,13 @@ const styles = StyleSheet.create({
   },
   guestTitle: { ...typography.h2, color: colors.text, marginTop: spacing.md },
   guestSubtitle: { ...typography.body, color: colors.mutedText, marginTop: spacing.xs },
+  companyHint: {
+    ...typography.caption,
+    color: colors.mutedText,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
   profileCard: {
     flexDirection: 'row',
     backgroundColor: colors.surface,

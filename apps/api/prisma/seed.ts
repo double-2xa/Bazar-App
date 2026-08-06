@@ -263,28 +263,28 @@ async function main() {
       status: 'assigned',
       paymentMethod: 'cash_on_delivery',
       paymentStatus: 'unpaid',
-      subtotal: 229.98,
+      subtotal: 989.92,
       deliveryFee: 5.99,
       discountAmount: 0,
-      taxAmount: 18.4,
-      totalAmount: 254.37,
+      taxAmount: 79.19,
+      totalAmount: 1075.1,
       items: {
         create: [
           {
             productId: products[0].id,
             productName: products[0].name,
-            quantity: 1,
+            quantity: 5,
             unitPrice: 149.99,
             selectedPriceType: 'normal',
-            totalPrice: 149.99,
+            totalPrice: 749.95,
           },
           {
             productId: products[2].id,
             productName: products[2].name,
-            quantity: 1,
+            quantity: 3,
             unitPrice: 79.99,
             selectedPriceType: 'normal',
-            totalPrice: 79.99,
+            totalPrice: 239.97,
           },
         ],
       },
@@ -311,20 +311,20 @@ async function main() {
       status: 'delivered',
       paymentMethod: 'cash_on_delivery',
       paymentStatus: 'paid',
-      subtotal: 129.99,
+      subtotal: 519.96,
       deliveryFee: 5.99,
       discountAmount: 0,
-      taxAmount: 10.4,
-      totalAmount: 146.38,
+      taxAmount: 41.6,
+      totalAmount: 567.55,
       items: {
         create: [
           {
             productId: products[6].id,
             productName: products[6].name,
-            quantity: 1,
+            quantity: 4,
             unitPrice: 129.99,
             selectedPriceType: 'normal',
-            totalPrice: 129.99,
+            totalPrice: 519.96,
           },
         ],
       },
@@ -354,20 +354,20 @@ async function main() {
       status: 'pending',
       paymentMethod: 'cash_on_delivery',
       paymentStatus: 'unpaid',
-      subtotal: 59.99,
+      subtotal: 119.98,
       deliveryFee: 5.99,
       discountAmount: 0,
-      taxAmount: 4.8,
-      totalAmount: 70.78,
+      taxAmount: 9.6,
+      totalAmount: 135.57,
       items: {
         create: [
           {
             productId: products[10].id,
             productName: products[10].name,
-            quantity: 1,
+            quantity: 2,
             unitPrice: 59.99,
             selectedPriceType: 'normal',
-            totalPrice: 59.99,
+            totalPrice: 119.98,
           },
         ],
       },
@@ -412,6 +412,19 @@ async function main() {
       },
     },
   });
+
+  // Sync denormalized soldCount from non-cancelled order items
+  const soldByProduct = await prisma.orderItem.groupBy({
+    by: ['productId'],
+    where: { order: { status: { not: 'cancelled' } } },
+    _sum: { quantity: true },
+  });
+  for (const row of soldByProduct) {
+    await prisma.product.update({
+      where: { id: row.productId },
+      data: { soldCount: row._sum.quantity ?? 0 },
+    });
+  }
 
   console.log('Seed completed successfully!');
   console.log('Demo accounts:');

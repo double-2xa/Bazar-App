@@ -9,9 +9,38 @@ import { Roles } from '../common/decorators/roles.decorator';
 export class DeliveryController {
   constructor(private deliveryService: DeliveryService) {}
 
+  @Get('notifications')
+  getNotifications(
+    @CurrentUser('sub') agentId: string,
+    @Query('unreadOnly') unreadOnly?: string,
+  ) {
+    return this.deliveryService.getNotifications(agentId, unreadOnly === 'true');
+  }
+
+  @Patch('notifications/:id/read')
+  markNotificationRead(
+    @CurrentUser('sub') agentId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.deliveryService.markNotificationRead(agentId, id);
+  }
+
   @Get('orders')
   getOrders(@CurrentUser('sub') agentId: string, @Query('status') status?: string) {
     return this.deliveryService.getAssignedOrders(agentId, status);
+  }
+
+  @Get('orders/available')
+  getAvailableOrders() {
+    return this.deliveryService.getAvailableOrders();
+  }
+
+  @Patch('orders/:id/lock')
+  lockOrder(
+    @CurrentUser('sub') agentId: string,
+    @Param('id', ParseUUIDPipe) orderId: string,
+  ) {
+    return this.deliveryService.lockOrder(agentId, orderId);
   }
 
   @Get('orders/:id')

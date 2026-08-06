@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DEFAULT_DELIVERY_FEE, DEFAULT_TAX_RATE } from '@doublea/shared';
+import { DEFAULT_TAX_RATE } from '@doublea/shared';
 import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { cartApi, addressesApi, ordersApi } from '@/services/endpoints';
 import { getErrorMessage } from '@/services/getErrorMessage';
@@ -20,12 +20,25 @@ export default function CheckoutScreen() {
   const { data: cart } = useQuery({ queryKey: ['cart'], queryFn: cartApi.get });
   const { data: addresses } = useQuery({ queryKey: ['addresses'], queryFn: addressesApi.getAll });
 
+  useEffect(() => {
+    if (!selectedAddress && addresses?.length) {
+      const preferred = addresses.find((a) => a.isDefault) ?? addresses[0];
+      setSelectedAddress(preferred.id);
+    }
+  }, [addresses, selectedAddress]);
+
+  const { data: deliveryQuote, isFetching: quoteLoading } = useQuery({
+    queryKey: ['delivery-quote', selectedAddress],
+    queryFn: () => ordersApi.getDeliveryQuote(selectedAddress!),
+    enabled: !!selectedAddress,
+  });
+
   const items = cart?.items || [];
   const subtotal = items.reduce((sum: number, item: { product: { normalPrice: number; companyPrice: number }; selectedPriceType: string; quantity: number }) => {
     const price = item.selectedPriceType === 'company' ? item.product.companyPrice : item.product.normalPrice;
     return sum + price * item.quantity;
   }, 0);
-  const deliveryFee = DEFAULT_DELIVERY_FEE;
+  const deliveryFee = deliveryQuote?.deliveryFee ?? 0;
   const taxAmount = subtotal * DEFAULT_TAX_RATE;
   const total = subtotal + deliveryFee + taxAmount;
 
@@ -98,7 +111,22 @@ export default function CheckoutScreen() {
         <Text style={styles.sectionTitle}>Order Summary</Text>
         <View style={styles.summary}>
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text>${subtotal.toFixed(2)}</Text></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Delivery</Text><Text>${deliveryFee.toFixed(2)}</Text></View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Delivery</Text>
+            <Text>
+              {quoteLoading && selectedAddress
+                ? '…'
+                : selectedAddress
+                  ? `$${deliveryFee.toFixed(2)}`
+                  : 'Select address'}
+            </Text>
+          </View>
+          {deliveryQuote?.distanceKm != null ? (
+            <Text style={styles.distanceHint}>
+              ~{deliveryQuote.distanceKm.toFixed(1)} km
+              {deliveryQuote.placeName ? ` · ${deliveryQuote.placeName}` : ''}
+            </Text>
+          ) : null}
           <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Tax</Text><Text>${taxAmount.toFixed(2)}</Text></View>
           <View style={[styles.summaryRow, styles.totalRow]}><Text style={styles.totalLabel}>Total</Text><Text style={styles.totalValue}>${total.toFixed(2)}</Text></View>
         </View>
@@ -146,6 +174,7 @@ const styles = StyleSheet.create({
   summary: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, ...shadows.sm },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
   summaryLabel: { ...typography.body, color: colors.mutedText },
+  distanceHint: { ...typography.caption, color: colors.mutedText, marginBottom: spacing.sm },
   totalRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm, marginTop: spacing.xs },
   totalLabel: { ...typography.h3, color: colors.text },
   totalValue: { ...typography.h3, color: colors.primary },

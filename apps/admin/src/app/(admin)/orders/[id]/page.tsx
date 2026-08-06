@@ -336,6 +336,28 @@ export default function OrderDetailPage() {
               {order.deliveryProof.deliveryNote && (
                 <p style={{ fontSize: 13 }}>{order.deliveryProof.deliveryNote}</p>
               )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+                {order.deliveryProof.agentSignatureDataUrl ? (
+                  <div>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Driver signature</p>
+                    <img
+                      src={order.deliveryProof.agentSignatureDataUrl}
+                      alt="Driver signature"
+                      style={{ width: '100%', height: 100, objectFit: 'contain', background: '#fff', border: '1px solid var(--border)', borderRadius: 8 }}
+                    />
+                  </div>
+                ) : null}
+                {order.deliveryProof.clientSignatureDataUrl ? (
+                  <div>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Client signature</p>
+                    <img
+                      src={order.deliveryProof.clientSignatureDataUrl}
+                      alt="Client signature"
+                      style={{ width: '100%', height: 100, objectFit: 'contain', background: '#fff', border: '1px solid var(--border)', borderRadius: 8 }}
+                    />
+                  </div>
+                ) : null}
+              </div>
             </div>
           )}
         </div>

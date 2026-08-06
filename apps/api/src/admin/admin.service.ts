@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { sanitizeUser } from '../common/utils';
 import { CreateDeliveryAgentDto } from './dto/admin.dto';
 import { decimalToNumber } from '../common/utils';
@@ -29,6 +30,7 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private authService: AuthService,
+    private notifications: NotificationsService,
   ) {}
 
   async getDashboardStats() {
@@ -521,19 +523,43 @@ export class AdminService {
   }
 
   async approveCompany(id: string) {
-    return this.prisma.companyProfile.update({
+    const profile = await this.prisma.companyProfile.update({
       where: { id },
       data: { status: 'approved' },
       include: { user: true },
     });
+
+    await this.notifications.notifyCompanyStatusChange(
+      {
+        email: profile.user.email,
+        phone: profile.companyPhone || profile.user.phone,
+        fullName: profile.user.fullName,
+        companyName: profile.companyName,
+      },
+      'approved',
+    );
+
+    return profile;
   }
 
   async rejectCompany(id: string) {
-    return this.prisma.companyProfile.update({
+    const profile = await this.prisma.companyProfile.update({
       where: { id },
       data: { status: 'rejected' },
       include: { user: true },
     });
+
+    await this.notifications.notifyCompanyStatusChange(
+      {
+        email: profile.user.email,
+        phone: profile.companyPhone || profile.user.phone,
+        fullName: profile.user.fullName,
+        companyName: profile.companyName,
+      },
+      'rejected',
+    );
+
+    return profile;
   }
 
   async createDeliveryAgent(dto: CreateDeliveryAgentDto) {
