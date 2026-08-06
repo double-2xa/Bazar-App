@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { UserPublic, Product, PriceType } from '@doublea/shared';
 import { authApi, cartApi } from '../services/endpoints';
+import { getGoogleIdToken } from '../services/googleAuth';
 import { tokenStorage } from '../services/tokenStorage';
 
 export interface GuestCartItem {
@@ -20,6 +21,7 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
   setShowCompanyPrice: (show: boolean) => void;
   login: (email: string, password: string) => Promise<UserPublic>;
+  loginWithGoogle: () => Promise<UserPublic>;
   logout: () => Promise<void>;
   loadSession: () => Promise<void>;
   addToGuestCart: (product: Product, quantity: number, priceType?: PriceType) => void;
@@ -27,6 +29,19 @@ interface AuthState {
   removeFromGuestCart: (productId: string, priceType?: PriceType) => void;
   clearGuestCart: () => void;
   getGuestCartCount: () => number;
+}
+
+async function mergeGuestCart(get: () => AuthState) {
+  const guestCart = get().guestCart;
+  if (guestCart.length === 0) return;
+  try {
+    for (const item of guestCart) {
+      await cartApi.addItem(item.productId, item.quantity, item.selectedPriceType);
+    }
+    get().clearGuestCart();
+  } catch {
+    /* keep guest cart if server merge fails */
+  }
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -45,19 +60,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await tokenStorage.setItemAsync('accessToken', data.tokens.accessToken);
     await tokenStorage.setItemAsync('refreshToken', data.tokens.refreshToken);
     set({ user: data.user, isAuthenticated: true });
+    await mergeGuestCart(get);
+    return data.user;
+  },
 
-    const guestCart = get().guestCart;
-    if (guestCart.length > 0) {
-      try {
-        for (const item of guestCart) {
-          await cartApi.addItem(item.productId, item.quantity, item.selectedPriceType);
-        }
-        get().clearGuestCart();
-      } catch {
-        /* keep guest cart if server merge fails */
-      }
-    }
-
+  loginWithGoogle: async () => {
+    const idToken = await getGoogleIdToken();
+    const data = await authApi.googleLogin(idToken);
+    await tokenStorage.setItemAsync('accessToken', data.tokens.accessToken);
+    await tokenStorage.setItemAsync('refreshToken', data.tokens.refreshToken);
+    set({ user: data.user, isAuthenticated: true });
+    await mergeGuestCart(get);
     return data.user;
   },
 

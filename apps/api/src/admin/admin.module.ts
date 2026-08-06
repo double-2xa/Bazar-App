@@ -8,7 +8,13 @@ import { LocationsModule } from "../locations/locations.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
-  imports: [OrdersModule, AuthModule, AddressesModule, LocationsModule],
+  imports: [
+    OrdersModule,
+    AuthModule,
+    AddressesModule,
+    LocationsModule,
+    NotificationsModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService],
 })

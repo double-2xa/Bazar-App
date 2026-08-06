@@ -9,6 +9,12 @@ export class LoginDto {
   password!: string;
 }
 
+export class GoogleAuthDto {
+  @IsString()
+  @MinLength(10)
+  idToken!: string;
+}
+
 export class RegisterDto {
   @IsEmail()
   email!: string;

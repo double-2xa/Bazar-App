@@ -16,9 +16,6 @@ import {
 } from "../common/utils/order-status";
 import { CreateOrderDto } from "./dto/order.dto";
 import { AddressesService } from "../addresses/addresses.service";
-
-const DEFAULT_DELIVERY_FEE = 5.99;
-const DEFAULT_TAX_RATE = 0.08;
 import {
   DEFAULT_TAX_RATE,
   calculateDeliveryFee,

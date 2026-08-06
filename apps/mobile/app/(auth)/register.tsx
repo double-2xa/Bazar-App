@@ -15,8 +15,10 @@ import { AppButton, AppInput } from '@/components';
 export default function RegisterScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [isCompany, setIsCompany] = useState(mode === 'company');
   const setUser = useAuthStore((s) => s.setUser);
+  const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
 
   useEffect(() => {
     if (mode === 'company') setIsCompany(true);
@@ -57,6 +59,25 @@ export default function RegisterScreen() {
       Alert.alert('Error', message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+      Alert.alert('Success', 'Account ready!');
+      router.replace('/(tabs)');
+    } catch (err: unknown) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const message =
+        apiMessage ||
+        (err instanceof Error ? err.message : null) ||
+        'Google Sign-In failed';
+      if (typeof message === 'string' && message.includes('cancelled')) return;
+      Alert.alert('Error', typeof message === 'string' ? message : 'Google Sign-In failed');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -118,6 +139,24 @@ export default function RegisterScreen() {
           fullWidth
           size="lg"
         />
+
+        {!isCompany ? (
+          <>
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.divider} />
+            </View>
+            <AppButton
+              title="Continue with Google"
+              onPress={onGoogle}
+              loading={googleLoading}
+              fullWidth
+              size="lg"
+              variant="outline"
+            />
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -136,4 +175,12 @@ const styles = StyleSheet.create({
   toggleActive: { borderColor: colors.primary, backgroundColor: colors.primary + '15' },
   toggleText: { ...typography.body, color: colors.mutedText },
   toggleTextActive: { color: colors.primary, fontWeight: '600' },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  divider: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { ...typography.bodySmall, color: colors.mutedText },
 });

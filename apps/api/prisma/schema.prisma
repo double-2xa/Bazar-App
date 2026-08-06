@@ -55,7 +55,9 @@ enum CouponType {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
-  passwordHash String
+  passwordHash String?
+  googleId     String?  @unique
+  authProvider String   @default("local")
   fullName     String
   phone        String?
   role         UserRole @default(normal_user)

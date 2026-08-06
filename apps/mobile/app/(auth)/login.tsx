@@ -8,10 +8,40 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
 import { AppButton, AppInput } from '@/components';
+import type { UserPublic } from '@doublea/shared';
+
+function routeAfterAuth(user: UserPublic) {
+  if (user.role === 'admin') {
+    Alert.alert(
+      'Admin Account',
+      'Please use the admin dashboard website to manage the store.',
+      [
+        {
+          text: 'Open Dashboard',
+          onPress: () => Linking.openURL(process.env.EXPO_PUBLIC_ADMIN_URL || 'http://localhost:3000'),
+        },
+        {
+          text: 'OK',
+          onPress: () => {
+            useAuthStore.getState().logout();
+          },
+        },
+      ],
+    );
+    return;
+  }
+  if (user.role === 'delivery_agent') {
+    router.replace('/(delivery)');
+    return;
+  }
+  router.replace('/(tabs)');
+}
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const login = useAuthStore((s) => s.login);
+  const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
 
   const { control, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(loginSchema),
@@ -22,34 +52,30 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const user = await login(data.email, data.password);
-      if (user.role === 'admin') {
-        Alert.alert(
-          'Admin Account',
-          'Please use the admin dashboard website to manage the store.',
-          [
-            {
-              text: 'Open Dashboard',
-              onPress: () => Linking.openURL(process.env.EXPO_PUBLIC_ADMIN_URL || 'http://localhost:3000'),
-            },
-            {
-              text: 'OK',
-              onPress: () => {
-                useAuthStore.getState().logout();
-              },
-            },
-          ],
-        );
-        return;
-      } else if (user.role === 'delivery_agent') {
-        router.replace('/(delivery)');
-      } else {
-        router.replace('/(tabs)');
-      }
+      routeAfterAuth(user);
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Login failed';
-      Alert.alert('Error', message);
+      Alert.alert('Error', typeof message === 'string' ? message : 'Login failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      const user = await loginWithGoogle();
+      routeAfterAuth(user);
+    } catch (err: unknown) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const message =
+        apiMessage ||
+        (err instanceof Error ? err.message : null) ||
+        'Google Sign-In failed';
+      if (message.includes('cancelled')) return;
+      Alert.alert('Error', typeof message === 'string' ? message : 'Google Sign-In failed');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -76,6 +102,21 @@ export default function LoginScreen() {
 
         <AppButton title="Sign In" onPress={handleSubmit(onSubmit)} loading={loading} fullWidth size="lg" />
 
+        <View style={styles.dividerRow}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.divider} />
+        </View>
+
+        <AppButton
+          title="Continue with Google"
+          onPress={onGoogle}
+          loading={googleLoading}
+          fullWidth
+          size="lg"
+          variant="outline"
+        />
+
         <Text style={styles.footer}>
           Don't have an account?{' '}
           <Text style={styles.link} onPress={() => router.push('/(auth)/register')}>
@@ -98,6 +139,14 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg },
   title: { ...typography.h1, color: colors.text, marginBottom: spacing.xs },
   subtitle: { ...typography.body, color: colors.mutedText, marginBottom: spacing.xl },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  divider: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { ...typography.bodySmall, color: colors.mutedText },
   footer: { ...typography.body, color: colors.mutedText, textAlign: 'center', marginTop: spacing.lg },
   link: { color: colors.primary, fontWeight: '600' },
 });

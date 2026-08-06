@@ -57,7 +57,7 @@ export class DeliveryService {
       const formatted = {
         ...order,
         address: order.address
-          ? this.addressesService.toPublic(order.address)
+          ? this.addressesService.toPublic(order.address as never)
           : null,
         subtotal: decimalToNumber(order.subtotal),
         totalAmount: decimalToNumber(order.totalAmount),

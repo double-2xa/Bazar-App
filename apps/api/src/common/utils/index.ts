@@ -3,7 +3,9 @@ import { User, CompanyProfile } from '@prisma/client';
 type UserWithCompany = User & { companyProfile?: CompanyProfile | null };
 
 export function sanitizeUser(user: UserWithCompany) {
-  const { passwordHash, ...rest } = user;
+  const { passwordHash: _passwordHash, googleId: _googleId, ...rest } = user as UserWithCompany & {
+    googleId?: string | null;
+  };
   return rest;
 }
 

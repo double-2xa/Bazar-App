@@ -6,7 +6,6 @@ import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
   imports: [AddressesModule, NotificationsModule],
-  imports: [NotificationsModule],
   controllers: [OrdersController],
   providers: [OrdersService],
   exports: [OrdersService],
