@@ -41,7 +41,7 @@ export default function ProfileScreen() {
             style={{ marginTop: spacing.sm }}
           />
           <AppButton
-            title="Sign in as Company"
+            title="Register as Company"
             variant="outline"
             onPress={() => router.push('/(auth)/register?mode=company')}
             style={{ marginTop: spacing.sm }}
