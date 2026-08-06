@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsNumber, MaxLength, IsNotEmpty } from 'class-validator';
 
 export class DeliveryProofDto {
   @IsOptional()
@@ -8,6 +8,14 @@ export class DeliveryProofDto {
   @IsOptional()
   @IsString()
   deliveryNote?: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Driver signature is required' })
+  agentSignatureDataUrl!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Client signature is required' })
+  clientSignatureDataUrl!: string;
 
   @IsOptional()
   @IsNumber()

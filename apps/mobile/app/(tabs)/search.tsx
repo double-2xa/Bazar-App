@@ -8,23 +8,22 @@ import { ProductCard, ProductCardSkeleton, EmptyState, GlassSearchBar, ScreenCon
 import { useDebounce } from '@/hooks/useDebounce';
 import { colors, spacing, radius, typography } from '@/theme';
 
-const SORT_OPTIONS = [
-  { key: 'createdAt', label: 'Newest' },
-  { key: 'price', label: 'Price' },
-  { key: 'rating', label: 'Rating' },
+const PRICE_FILTERS = [
+  { key: 'asc', label: 'Price: Low → High' },
+  { key: 'desc', label: 'Price: High → Low' },
 ] as const;
 
 export default function SearchScreen() {
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<(typeof SORT_OPTIONS)[number]['key']>('createdAt');
+  const [priceOrder, setPriceOrder] = useState<(typeof PRICE_FILTERS)[number]['key']>('asc');
   const debouncedSearch = useDebounce(search, 400);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['products', 'search', debouncedSearch, sortBy],
+    queryKey: ['products', 'search', debouncedSearch, priceOrder],
     queryFn: () => {
       const params: Record<string, string | number | boolean> = {
-        sortBy,
-        sortOrder: sortBy === 'price' ? 'asc' : 'desc',
+        sortBy: 'price',
+        sortOrder: priceOrder,
         limit: 30,
       };
       if (debouncedSearch) params.search = debouncedSearch;
@@ -48,15 +47,15 @@ export default function SearchScreen() {
       />
 
       <View style={styles.filters}>
-        {SORT_OPTIONS.map((option) => (
+        {PRICE_FILTERS.map((option) => (
           <TouchableOpacity
             key={option.key}
-            style={[styles.filterChip, sortBy === option.key && styles.filterActive]}
-            onPress={() => setSortBy(option.key)}
+            style={[styles.filterChip, priceOrder === option.key && styles.filterActive]}
+            onPress={() => setPriceOrder(option.key)}
             accessibilityRole="button"
-            accessibilityState={{ selected: sortBy === option.key }}
+            accessibilityState={{ selected: priceOrder === option.key }}
           >
-            <Text style={[styles.filterText, sortBy === option.key && styles.filterTextActive]}>
+            <Text style={[styles.filterText, priceOrder === option.key && styles.filterTextActive]}>
               {option.label}
             </Text>
           </TouchableOpacity>

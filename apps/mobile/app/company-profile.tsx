@@ -1,6 +1,9 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useCallback } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
+import { authApi } from '@/services/endpoints';
 import { colors, spacing, typography, radius } from '@/theme';
 import { GlassCard, Badge, ScreenContainer } from '@/components';
 
@@ -11,10 +14,27 @@ const STATUS_CONFIG = {
 };
 
 export default function CompanyProfileScreen() {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const profile = user?.companyProfile;
   const status = profile?.status ?? 'pending';
   const statusMeta = STATUS_CONFIG[status];
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      authApi
+        .me()
+        .then((me) => {
+          if (active) setUser(me);
+        })
+        .catch(() => {
+          /* keep cached session */
+        });
+      return () => {
+        active = false;
+      };
+    }, [setUser]),
+  );
 
   return (
     <ScreenContainer>
@@ -27,6 +47,7 @@ export default function CompanyProfileScreen() {
         {status === 'pending' ? (
           <Text style={styles.pendingCopy}>
             Your wholesale application is being reviewed. Company pricing unlocks after approval.
+            You will be notified by email or WhatsApp once an admin activates your account.
           </Text>
         ) : null}
       </GlassCard>

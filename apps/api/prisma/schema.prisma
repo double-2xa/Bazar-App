@@ -73,6 +73,22 @@ model User {
   refreshTokens    RefreshToken[]
   orderStatusChanges OrderStatusHistory[]
   deliveryProofs   DeliveryProof[]
+  notifications    Notification[]
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 model RefreshToken {
@@ -124,6 +140,7 @@ model Product {
   imageUrl      String?
   ratingAverage Float          @default(0)
   ratingCount   Int            @default(0)
+  soldCount     Int            @default(0)
   isFeatured    Boolean        @default(false)
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
@@ -260,16 +277,18 @@ model OrderStatusHistory {
 }
 
 model DeliveryProof {
-  id              String   @id @default(uuid())
-  orderId         String   @unique
-  deliveryAgentId String
-  deliveredToName String?
-  deliveryNote    String?
-  deliveredAt     DateTime @default(now())
-  latitude        Float?
-  longitude       Float?
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  deliveryAgent   User     @relation(fields: [deliveryAgentId], references: [id])
+  id                      String   @id @default(uuid())
+  orderId                 String   @unique
+  deliveryAgentId         String
+  deliveredToName         String?
+  deliveryNote            String?
+  agentSignatureDataUrl   String?  @db.Text
+  clientSignatureDataUrl  String?  @db.Text
+  deliveredAt             DateTime @default(now())
+  latitude                Float?
+  longitude               Float?
+  order                   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveryAgent           User     @relation(fields: [deliveryAgentId], references: [id])
 }
 
 model Wishlist {

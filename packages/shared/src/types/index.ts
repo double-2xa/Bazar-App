@@ -71,6 +71,7 @@ export interface Product {
   images: ProductImage[];
   ratingAverage: number;
   ratingCount: number;
+  soldCount: number;
   isFeatured: boolean;
   isActive: boolean;
   category?: Category;
@@ -153,6 +154,8 @@ export interface DeliveryProofPublic {
   deliveredAt: string;
   deliveredToName: string | null;
   deliveryNote: string | null;
+  agentSignatureDataUrl: string | null;
+  clientSignatureDataUrl: string | null;
   latitude: number | null;
   longitude: number | null;
 }
@@ -197,6 +200,16 @@ export interface DeliveryOrdersGrouped {
   picked_up: Order[];
   on_the_way: Order[];
   delivered: Order[];
+}
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown> | null;
+  readAt: string | null;
+  createdAt: string;
 }
 
 export interface Review {

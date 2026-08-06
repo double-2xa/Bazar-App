@@ -153,6 +153,17 @@ export const PAYMENT_METHODS = ['cash_on_delivery', 'card'] as const;
 export const DEFAULT_DELIVERY_FEE = 5.99;
 export const DEFAULT_TAX_RATE = 0.08;
 
+export {
+  STORE_ORIGIN,
+  LEBANON_PLACES,
+  DELIVERY_FEE_FORMULA,
+  haversineKm,
+  findLebanonPlaceByCity,
+  resolveDeliveryDestination,
+  calculateDeliveryFee,
+} from './delivery';
+export type { LebanonPlace, DeliveryFeeInput, DeliveryFeeQuote } from './delivery';
+
 export const DEMO_ACCOUNTS = {
   admin: { email: 'admin@doublea.com', password: 'Admin123!' },
   normalUser: { email: 'user@doublea.com', password: 'User123!' },

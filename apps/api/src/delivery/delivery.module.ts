@@ -1,11 +1,12 @@
-import { Module } from '@nestjs/common';
-import { DeliveryController } from './delivery.controller';
-import { DeliveryService } from './delivery.service';
-import { OrdersModule } from '../orders/orders.module';
-import { AddressesModule } from '../addresses/addresses.module';
+import { Module } from "@nestjs/common";
+import { DeliveryController } from "./delivery.controller";
+import { DeliveryService } from "./delivery.service";
+import { OrdersModule } from "../orders/orders.module";
+import { AddressesModule } from "../addresses/addresses.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
-  imports: [OrdersModule, AddressesModule],
+  imports: [OrdersModule, AddressesModule, NotificationsModule],
   controllers: [DeliveryController],
   providers: [DeliveryService],
 })

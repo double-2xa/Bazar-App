@@ -1,30 +1,40 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { AuthService } from '../auth/auth.service';
-import { AddressesService } from '../addresses/addresses.service';
-import { LocationsService } from '../locations/locations.service';
-import { sanitizeUser } from '../common/utils';
-import { CreateDeliveryAgentDto } from './dto/admin.dto';
-import { decimalToNumber } from '../common/utils';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { AuthService } from "../auth/auth.service";
+import { AddressesService } from "../addresses/addresses.service";
+import { LocationsService } from "../locations/locations.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { sanitizeUser } from "../common/utils";
+import { CreateDeliveryAgentDto } from "./dto/admin.dto";
+import { decimalToNumber } from "../common/utils";
 import {
   getBeirutStartOfDay,
   getBeirutDaysAgoStart,
   getBeirutDateKey,
   emptyStatusBreakdown,
   LOW_STOCK_THRESHOLD,
-} from './dashboard.helpers';
+} from "./dashboard.helpers";
 
 const ACTIVE_MAP_STATUSES = [
-  'pending',
-  'confirmed',
-  'assigned',
-  'accepted',
-  'picked_up',
-  'on_the_way',
+  "pending",
+  "confirmed",
+  "assigned",
+  "accepted",
+  "picked_up",
+  "on_the_way",
 ] as const;
 
-const IN_DELIVERY_STATUSES = ['assigned', 'accepted', 'picked_up', 'on_the_way'] as const;
+const IN_DELIVERY_STATUSES = [
+  "assigned",
+  "accepted",
+  "picked_up",
+  "on_the_way",
+] as const;
 
 @Injectable()
 export class AdminService {
@@ -33,6 +43,7 @@ export class AdminService {
     private authService: AuthService,
     private addressesService: AddressesService,
     private locationsService: LocationsService,
+    private notifications: NotificationsService,
   ) {}
 
   async getDashboardStats() {
@@ -41,12 +52,12 @@ export class AdminService {
     const start30d = getBeirutDaysAgoStart(29);
 
     const unassignedWhere: Prisma.OrderWhereInput = {
-      status: 'confirmed',
+      status: "confirmed",
       deliveryAgentId: null,
     };
 
     const deliveredTodayWhere: Prisma.OrderWhereInput = {
-      status: 'delivered',
+      status: "delivered",
       OR: [
         { deliveryProof: { deliveredAt: { gte: startOfToday } } },
         { deliveryProof: null, updatedAt: { gte: startOfToday } },
@@ -96,62 +107,62 @@ export class AdminService {
     ] = await Promise.all([
       this.prisma.order.count(),
       this.prisma.order.aggregate({
-        where: { status: 'delivered' },
+        where: { status: "delivered" },
         _sum: { totalAmount: true },
       }),
-      this.prisma.user.count({ where: { role: 'normal_user' } }),
+      this.prisma.user.count({ where: { role: "normal_user" } }),
       this.prisma.product.count(),
-      this.prisma.companyProfile.count({ where: { status: 'approved' } }),
-      this.prisma.user.count({ where: { role: 'delivery_agent' } }),
+      this.prisma.companyProfile.count({ where: { status: "approved" } }),
+      this.prisma.user.count({ where: { role: "delivery_agent" } }),
       this.prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
       this.prisma.order.aggregate({
         where: deliveredTodayWhere,
         _sum: { totalAmount: true },
       }),
       this.prisma.order.count({ where: deliveredTodayWhere }),
-      this.prisma.order.count({ where: { status: 'pending' } }),
-      this.prisma.order.count({ where: { status: 'confirmed' } }),
+      this.prisma.order.count({ where: { status: "pending" } }),
+      this.prisma.order.count({ where: { status: "confirmed" } }),
       this.prisma.order.count({ where: unassignedWhere }),
       this.prisma.order.count({
         where: { status: { in: [...IN_DELIVERY_STATUSES] } },
       }),
       this.prisma.order.aggregate({
         where: {
-          paymentMethod: 'cash_on_delivery',
-          paymentStatus: 'unpaid',
-          status: { not: 'cancelled' },
+          paymentMethod: "cash_on_delivery",
+          paymentStatus: "unpaid",
+          status: { not: "cancelled" },
         },
         _sum: { totalAmount: true },
       }),
       this.prisma.order.count({
         where: {
-          paymentMethod: 'cash_on_delivery',
-          paymentStatus: 'unpaid',
-          status: { not: 'cancelled' },
+          paymentMethod: "cash_on_delivery",
+          paymentStatus: "unpaid",
+          status: { not: "cancelled" },
         },
       }),
-      this.prisma.companyProfile.count({ where: { status: 'pending' } }),
+      this.prisma.companyProfile.count({ where: { status: "pending" } }),
       this.prisma.user.count({
-        where: { role: 'delivery_agent', isActive: true },
+        where: { role: "delivery_agent", isActive: true },
       }),
       this.prisma.product.count({
         where: { stockQuantity: { lte: LOW_STOCK_THRESHOLD } },
       }),
-      this.prisma.order.count({ where: { status: 'delivered' } }),
+      this.prisma.order.count({ where: { status: "delivered" } }),
       this.prisma.order.groupBy({
-        by: ['status'],
+        by: ["status"],
         _count: { _all: true },
       }),
       this.prisma.order.count({
-        where: { status: 'confirmed', deliveryAgentId: null },
+        where: { status: "confirmed", deliveryAgentId: null },
       }),
-      this.prisma.order.count({ where: { status: 'assigned' } }),
-      this.prisma.order.count({ where: { status: 'accepted' } }),
-      this.prisma.order.count({ where: { status: 'picked_up' } }),
-      this.prisma.order.count({ where: { status: 'on_the_way' } }),
+      this.prisma.order.count({ where: { status: "assigned" } }),
+      this.prisma.order.count({ where: { status: "accepted" } }),
+      this.prisma.order.count({ where: { status: "picked_up" } }),
+      this.prisma.order.count({ where: { status: "on_the_way" } }),
       this.prisma.order.findMany({
         where: activeMapWhere,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 200,
         select: {
           id: true,
@@ -192,7 +203,7 @@ export class AdminService {
         where: activeMapWhere,
       }),
       this.prisma.order.findMany({
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 8,
         select: {
           id: true,
@@ -206,13 +217,13 @@ export class AdminService {
         },
       }),
       this.prisma.orderItem.groupBy({
-        by: ['productId'],
+        by: ["productId"],
         _sum: { quantity: true, totalPrice: true },
-        orderBy: { _sum: { quantity: 'desc' } },
+        orderBy: { _sum: { quantity: "desc" } },
         take: 5,
       }),
       this.prisma.user.findMany({
-        where: { role: 'delivery_agent', isActive: true },
+        where: { role: "delivery_agent", isActive: true },
         select: {
           id: true,
           fullName: true,
@@ -226,12 +237,12 @@ export class AdminService {
             },
           },
         },
-        orderBy: { fullName: 'asc' },
+        orderBy: { fullName: "asc" },
         take: 20,
       }),
       this.prisma.product.findMany({
         where: { stockQuantity: { lte: LOW_STOCK_THRESHOLD } },
-        orderBy: { stockQuantity: 'asc' },
+        orderBy: { stockQuantity: "asc" },
         take: 5,
         select: {
           id: true,
@@ -242,8 +253,8 @@ export class AdminService {
         },
       }),
       this.prisma.companyProfile.findMany({
-        where: { status: 'pending' },
-        orderBy: { createdAt: 'asc' },
+        where: { status: "pending" },
+        orderBy: { createdAt: "asc" },
         take: 5,
         select: {
           id: true,
@@ -329,7 +340,12 @@ export class AdminService {
     const buildTrend = (orders: typeof ordersForTrend7, days: number) => {
       const buckets = new Map<
         string,
-        { ordersCount: number; revenue: number; deliveredCount: number; codAmount: number }
+        {
+          ordersCount: number;
+          revenue: number;
+          deliveredCount: number;
+          codAmount: number;
+        }
       >();
       const now = new Date();
       for (let i = days - 1; i >= 0; i--) {
@@ -346,7 +362,7 @@ export class AdminService {
         const bucket = buckets.get(key);
         if (!bucket) continue;
         bucket.ordersCount += 1;
-        if (o.status === 'delivered') {
+        if (o.status === "delivered") {
           const deliveredAt = o.deliveryProof?.deliveredAt ?? o.updatedAt;
           if (getBeirutDateKey(deliveredAt) === key) {
             bucket.deliveredCount += 1;
@@ -354,9 +370,9 @@ export class AdminService {
           }
         }
         if (
-          o.paymentMethod === 'cash_on_delivery' &&
-          o.paymentStatus === 'paid' &&
-          o.status === 'delivered'
+          o.paymentMethod === "cash_on_delivery" &&
+          o.paymentStatus === "paid" &&
+          o.status === "delivered"
         ) {
           const deliveredAt = o.deliveryProof?.deliveredAt ?? o.updatedAt;
           if (getBeirutDateKey(deliveredAt) === key) {
@@ -384,7 +400,7 @@ export class AdminService {
       const meta = productMap.get(g.productId);
       return {
         productId: g.productId,
-        name: meta?.name ?? 'Unknown product',
+        name: meta?.name ?? "Unknown product",
         quantitySold: g._sum.quantity ?? 0,
         revenue: decimalToNumber(g._sum.totalPrice || 0),
         stockQuantity: meta?.stockQuantity ?? 0,
@@ -404,7 +420,7 @@ export class AdminService {
 
     const cityCounts = new Map<string, number>();
     for (const o of ordersByCityRaw) {
-      const city = o.address?.city?.trim() || 'Unknown';
+      const city = o.address?.city?.trim() || "Unknown";
       cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
     }
     const ordersByCity = Array.from(cityCounts.entries())
@@ -441,20 +457,22 @@ export class AdminService {
               ...base,
               latitude: coords.latitude,
               longitude: coords.longitude,
-              locationPrecision: 'exact' as const,
+              locationPrecision: "exact" as const,
             };
           }
         }
 
         // Fallback: place pin on Lebanon basemap settlement / city centroid
         if (o.address?.settlementId) {
-          const settlement = this.locationsService.findOneInternal(o.address.settlementId);
+          const settlement = this.locationsService.findOneInternal(
+            o.address.settlementId,
+          );
           if (settlement) {
             return {
               ...base,
               latitude: settlement.latitude,
               longitude: settlement.longitude,
-              locationPrecision: 'settlement' as const,
+              locationPrecision: "settlement" as const,
             };
           }
         }
@@ -470,7 +488,7 @@ export class AdminService {
               ...base,
               latitude: match.latitude,
               longitude: match.longitude,
-              locationPrecision: 'settlement' as const,
+              locationPrecision: "settlement" as const,
             };
           }
         }
@@ -479,7 +497,10 @@ export class AdminService {
       })
       .filter((o): o is NonNullable<typeof o> => o != null);
 
-    const mapOrdersWithoutCoordinates = Math.max(0, activeOrdersForMapCount - mapOrders.length);
+    const mapOrdersWithoutCoordinates = Math.max(
+      0,
+      activeOrdersForMapCount - mapOrders.length,
+    );
 
     return {
       summary,
@@ -541,7 +562,7 @@ export class AdminService {
         include: { companyProfile: true },
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -576,30 +597,60 @@ export class AdminService {
   async getCompanyAccounts(status?: string) {
     return this.prisma.companyProfile.findMany({
       where: status ? { status: status as never } : undefined,
-      include: { user: { select: { id: true, email: true, fullName: true, phone: true } } },
-      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: { id: true, email: true, fullName: true, phone: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 
   async approveCompany(id: string) {
-    return this.prisma.companyProfile.update({
+    const profile = await this.prisma.companyProfile.update({
       where: { id },
-      data: { status: 'approved' },
+      data: { status: "approved" },
       include: { user: true },
     });
+
+    await this.notifications.notifyCompanyStatusChange(
+      {
+        email: profile.user.email,
+        phone: profile.companyPhone || profile.user.phone,
+        fullName: profile.user.fullName,
+        companyName: profile.companyName,
+      },
+      "approved",
+    );
+
+    return profile;
   }
 
   async rejectCompany(id: string) {
-    return this.prisma.companyProfile.update({
+    const profile = await this.prisma.companyProfile.update({
       where: { id },
-      data: { status: 'rejected' },
+      data: { status: "rejected" },
       include: { user: true },
     });
+
+    await this.notifications.notifyCompanyStatusChange(
+      {
+        email: profile.user.email,
+        phone: profile.companyPhone || profile.user.phone,
+        fullName: profile.user.fullName,
+        companyName: profile.companyName,
+      },
+      "rejected",
+    );
+
+    return profile;
   }
 
   async createDeliveryAgent(dto: CreateDeliveryAgentDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existing) throw new ConflictException('Email already exists');
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    if (existing) throw new ConflictException("Email already exists");
 
     const passwordHash = await this.authService.hashPassword(dto.password);
     const user = await this.prisma.user.create({
@@ -608,7 +659,7 @@ export class AdminService {
         passwordHash,
         fullName: dto.fullName,
         phone: dto.phone,
-        role: 'delivery_agent',
+        role: "delivery_agent",
       },
     });
     return sanitizeUser(user);
@@ -616,7 +667,7 @@ export class AdminService {
 
   async getDeliveryAgents() {
     const agents = await this.prisma.user.findMany({
-      where: { role: 'delivery_agent' },
+      where: { role: "delivery_agent" },
       select: {
         id: true,
         email: true,
@@ -627,12 +678,16 @@ export class AdminService {
         _count: {
           select: {
             assignedOrders: {
-              where: { status: { in: ['assigned', 'accepted', 'picked_up', 'on_the_way'] } },
+              where: {
+                status: {
+                  in: ["assigned", "accepted", "picked_up", "on_the_way"],
+                },
+              },
             },
           },
         },
       },
-      orderBy: { fullName: 'asc' },
+      orderBy: { fullName: "asc" },
     });
 
     return agents.map((agent) => ({
@@ -652,7 +707,7 @@ export class AdminService {
         user: { select: { fullName: true, email: true } },
         product: { select: { name: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 }

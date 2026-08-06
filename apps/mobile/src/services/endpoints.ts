@@ -7,11 +7,16 @@ import type {
   UserPublic,
   LoginResponse,
   DeliveryOrdersGrouped,
+  AppNotification,
 } from '@doublea/shared';
 
 export type DeliveryProofInput = {
   deliveredToName?: string;
   deliveryNote?: string;
+  agentSignatureDataUrl: string;
+  clientSignatureDataUrl: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export const authApi = {
@@ -83,6 +88,15 @@ export const ordersApi = {
   getMyOrders: () => api.get<Order[]>('/orders/my-orders').then((r) => r.data),
   getById: (id: string) => api.get<Order>(`/orders/${id}`).then((r) => r.data),
   cancel: (id: string) => api.patch(`/orders/${id}/cancel`).then((r) => r.data),
+  getDeliveryQuote: (addressId: string) =>
+    api
+      .get<{
+        deliveryFee: number;
+        distanceKm: number | null;
+        placeName: string | null;
+        method: string;
+      }>('/orders/delivery-quote', { params: { addressId } })
+      .then((r) => r.data),
 };
 
 export const wishlistApi = {
@@ -94,6 +108,22 @@ export const wishlistApi = {
 export const deliveryApi = {
   getOrders: () =>
     api.get<DeliveryOrdersGrouped>('/delivery/orders').then((r) => r.data),
+
+  getAvailableOrders: () =>
+    api.get<Order[]>('/delivery/orders/available').then((r) => r.data),
+
+  getNotifications: (unreadOnly = false) =>
+    api
+      .get<AppNotification[]>('/delivery/notifications', {
+        params: unreadOnly ? { unreadOnly: true } : undefined,
+      })
+      .then((r) => r.data),
+
+  markNotificationRead: (id: string) =>
+    api.patch(`/delivery/notifications/${id}/read`).then((r) => r.data),
+
+  lockOrder: (id: string) =>
+    api.patch<Order>(`/delivery/orders/${id}/lock`).then((r) => r.data),
 
   getOrder: (id: string) =>
     api.get<Order>(`/delivery/orders/${id}`).then((r) => r.data),

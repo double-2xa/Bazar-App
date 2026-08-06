@@ -3,20 +3,33 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { decimalToNumber, generateOrderNumber } from '../common/utils';
-import { assertAdminStatusTransition, assertAssignFromStatus, assertRejectFromStatus, assertNotTerminal, assertUnassignFromStatus, isReassignment } from '../common/utils/order-status';
-import { CreateOrderDto } from './dto/order.dto';
-import { AddressesService } from '../addresses/addresses.service';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { decimalToNumber, generateOrderNumber } from "../common/utils";
+import {
+  assertAdminStatusTransition,
+  assertAssignFromStatus,
+  assertRejectFromStatus,
+  assertNotTerminal,
+  assertUnassignFromStatus,
+  isReassignment,
+} from "../common/utils/order-status";
+import { CreateOrderDto } from "./dto/order.dto";
+import { AddressesService } from "../addresses/addresses.service";
 
 const DEFAULT_DELIVERY_FEE = 5.99;
 const DEFAULT_TAX_RATE = 0.08;
+import {
+  DEFAULT_TAX_RATE,
+  calculateDeliveryFee,
+  STORE_ORIGIN,
+} from "@doublea/shared";
+import { NotificationsService } from "../notifications/notifications.service";
 
 const ORDER_DETAIL_INCLUDE = {
   items: true,
   address: true,
-  statusHistory: { orderBy: { createdAt: 'desc' as const } },
+  statusHistory: { orderBy: { createdAt: "desc" as const } },
   deliveryProof: true,
   deliveryAgent: { select: { id: true, fullName: true, phone: true } },
   user: { select: { id: true, fullName: true, email: true, phone: true } },
@@ -27,6 +40,7 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private addressesService: AddressesService,
+    private notifications: NotificationsService,
   ) {}
 
   private formatOrder(order: Record<string, unknown>) {
@@ -55,15 +69,49 @@ export class OrdersService {
       where: { id: orderId },
       include: ORDER_DETAIL_INCLUDE,
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException("Order not found");
     return this.formatOrder(order as unknown as Record<string, unknown>);
+  }
+
+  private resolveStoreOrigin() {
+    const lat = process.env.STORE_LAT
+      ? parseFloat(process.env.STORE_LAT)
+      : STORE_ORIGIN.lat;
+    const lng = process.env.STORE_LNG
+      ? parseFloat(process.env.STORE_LNG)
+      : STORE_ORIGIN.lng;
+    return {
+      originLat: Number.isFinite(lat) ? lat : STORE_ORIGIN.lat,
+      originLng: Number.isFinite(lng) ? lng : STORE_ORIGIN.lng,
+    };
+  }
+
+  private quoteDeliveryForAddress(address: {
+    latitude?: number | null;
+    longitude?: number | null;
+    city?: string | null;
+  }) {
+    return calculateDeliveryFee({
+      latitude: address.latitude,
+      longitude: address.longitude,
+      city: address.city,
+      ...this.resolveStoreOrigin(),
+    });
+  }
+
+  async getDeliveryQuote(userId: string, addressId: string) {
+    const address = await this.prisma.address.findFirst({
+      where: { id: addressId, userId },
+    });
+    if (!address) throw new NotFoundException("Address not found");
+    return this.quoteDeliveryForAddress(address);
   }
 
   async create(userId: string, userRole: string, dto: CreateOrderDto) {
     const address = await this.prisma.address.findFirst({
       where: { id: dto.addressId, userId },
     });
-    if (!address) throw new NotFoundException('Address not found');
+    if (!address) throw new NotFoundException("Address not found");
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -76,32 +124,36 @@ export class OrdersService {
       productName: string;
       quantity: number;
       unitPrice: number;
-      selectedPriceType: 'normal' | 'company';
+      selectedPriceType: "normal" | "company";
       totalPrice: number;
     }[] = [];
 
     for (const item of dto.items) {
-      const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
+      const product = await this.prisma.product.findUnique({
+        where: { id: item.productId },
+      });
       if (!product || !product.isActive) {
-        throw new BadRequestException(`Product ${item.productId} not available`);
+        throw new BadRequestException(
+          `Product ${item.productId} not available`,
+        );
       }
       if (product.stockQuantity < item.quantity) {
         throw new BadRequestException(`Insufficient stock for ${product.name}`);
       }
 
-      let priceType = item.selectedPriceType || 'normal';
-      if (priceType === 'company') {
+      let priceType = item.selectedPriceType || "normal";
+      if (priceType === "company") {
         if (
-          userRole !== 'company' ||
+          userRole !== "company" ||
           !user?.companyProfile ||
-          user.companyProfile.status !== 'approved'
+          user.companyProfile.status !== "approved"
         ) {
-          throw new ForbiddenException('Company pricing not available');
+          throw new ForbiddenException("Company pricing not available");
         }
       }
 
       const unitPrice =
-        priceType === 'company'
+        priceType === "company"
           ? decimalToNumber(product.companyPrice)
           : decimalToNumber(product.normalPrice);
       const totalPrice = unitPrice * item.quantity;
@@ -122,9 +174,14 @@ export class OrdersService {
       const coupon = await this.prisma.coupon.findUnique({
         where: { code: dto.couponCode.toUpperCase() },
       });
-      if (coupon && coupon.isActive && coupon.startsAt <= new Date() && coupon.expiresAt >= new Date()) {
+      if (
+        coupon &&
+        coupon.isActive &&
+        coupon.startsAt <= new Date() &&
+        coupon.expiresAt >= new Date()
+      ) {
         if (subtotal >= decimalToNumber(coupon.minOrderAmount)) {
-          if (coupon.type === 'percentage') {
+          if (coupon.type === "percentage") {
             discountAmount = subtotal * (decimalToNumber(coupon.value) / 100);
           } else {
             discountAmount = decimalToNumber(coupon.value);
@@ -133,7 +190,8 @@ export class OrdersService {
       }
     }
 
-    const deliveryFee = DEFAULT_DELIVERY_FEE;
+    const deliveryQuote = this.quoteDeliveryForAddress(address);
+    const deliveryFee = deliveryQuote.deliveryFee;
     const taxable = subtotal - discountAmount;
     const taxAmount = taxable * DEFAULT_TAX_RATE;
     const totalAmount = taxable + deliveryFee + taxAmount;
@@ -142,7 +200,10 @@ export class OrdersService {
       for (const item of orderItems) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stockQuantity: { decrement: item.quantity } },
+          data: {
+            stockQuantity: { decrement: item.quantity },
+            soldCount: { increment: item.quantity },
+          },
         });
       }
 
@@ -151,7 +212,7 @@ export class OrdersService {
           orderNumber: generateOrderNumber(),
           userId,
           addressId: dto.addressId,
-          paymentMethod: dto.paymentMethod || 'cash_on_delivery',
+          paymentMethod: dto.paymentMethod || "cash_on_delivery",
           subtotal,
           deliveryFee,
           discountAmount,
@@ -160,13 +221,19 @@ export class OrdersService {
           customerNote: dto.customerNote,
           items: { create: orderItems },
           statusHistory: {
-            create: { status: 'pending', note: 'Order placed', changedByUserId: userId },
+            create: {
+              status: "pending",
+              note: "Order placed",
+              changedByUserId: userId,
+            },
           },
         },
         include: {
           items: true,
           address: true,
-          user: { select: { id: true, fullName: true, email: true, phone: true } },
+          user: {
+            select: { id: true, fullName: true, email: true, phone: true },
+          },
         },
       });
 
@@ -180,6 +247,12 @@ export class OrdersService {
       return created;
     });
 
+    try {
+      await this.notifications.notifyDeliveryAgentsNewOrder(order);
+    } catch {
+      /* order already created — notification failure must not fail checkout */
+    }
+
     return this.formatOrder(order as unknown as Record<string, unknown>);
   }
 
@@ -191,9 +264,11 @@ export class OrdersService {
         address: true,
         deliveryAgent: { select: { id: true, fullName: true, phone: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
-    return orders.map((o) => this.formatOrder(o as unknown as Record<string, unknown>));
+    return orders.map((o) =>
+      this.formatOrder(o as unknown as Record<string, unknown>),
+    );
   }
 
   async getOrder(userId: string, userRole: string, orderId: string) {
@@ -201,18 +276,18 @@ export class OrdersService {
       where: { id: orderId },
       include: ORDER_DETAIL_INCLUDE,
     });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException("Order not found");
 
     if (
-      userRole !== 'admin' &&
-      userRole !== 'delivery_agent' &&
+      userRole !== "admin" &&
+      userRole !== "delivery_agent" &&
       order.userId !== userId
     ) {
-      throw new ForbiddenException('Access denied');
+      throw new ForbiddenException("Access denied");
     }
 
-    if (userRole === 'delivery_agent' && order.deliveryAgentId !== userId) {
-      throw new ForbiddenException('Access denied');
+    if (userRole === "delivery_agent" && order.deliveryAgentId !== userId) {
+      throw new ForbiddenException("Access denied");
     }
 
     return this.formatOrder(order as unknown as Record<string, unknown>);
@@ -223,24 +298,31 @@ export class OrdersService {
       where: { id: orderId, userId },
       include: { items: true },
     });
-    if (!order) throw new NotFoundException('Order not found');
-    if (order.status !== 'pending') {
-      throw new BadRequestException('Only pending orders can be cancelled');
+    if (!order) throw new NotFoundException("Order not found");
+    if (order.status !== "pending") {
+      throw new BadRequestException("Only pending orders can be cancelled");
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       for (const item of order.items) {
         await tx.product.update({
           where: { id: item.productId },
-          data: { stockQuantity: { increment: item.quantity } },
+          data: {
+            stockQuantity: { increment: item.quantity },
+            soldCount: { decrement: item.quantity },
+          },
         });
       }
       return tx.order.update({
         where: { id: orderId },
         data: {
-          status: 'cancelled',
+          status: "cancelled",
           statusHistory: {
-            create: { status: 'cancelled', note: 'Cancelled by customer', changedByUserId: userId },
+            create: {
+              status: "cancelled",
+              note: "Cancelled by customer",
+              changedByUserId: userId,
+            },
           },
         },
         include: { items: true, address: true },
@@ -257,8 +339,10 @@ export class OrdersService {
     note?: string,
     options?: { validateAdmin?: boolean },
   ) {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Order not found');
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException("Order not found");
 
     if (options?.validateAdmin) {
       assertAdminStatusTransition(order.status, status);
@@ -277,17 +361,23 @@ export class OrdersService {
     return this.fetchOrderDetail(orderId);
   }
 
-  async assignDeliveryAgent(orderId: string, deliveryAgentId: string, adminId: string) {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Order not found');
+  async assignDeliveryAgent(
+    orderId: string,
+    deliveryAgentId: string,
+    adminId: string,
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException("Order not found");
 
-    assertNotTerminal(order.status, 'assign a delivery agent');
+    assertNotTerminal(order.status, "assign a delivery agent");
     assertAssignFromStatus(order.status);
 
     const agent = await this.prisma.user.findFirst({
-      where: { id: deliveryAgentId, role: 'delivery_agent', isActive: true },
+      where: { id: deliveryAgentId, role: "delivery_agent", isActive: true },
     });
-    if (!agent) throw new NotFoundException('Delivery agent not found');
+    if (!agent) throw new NotFoundException("Delivery agent not found");
 
     const reassign = isReassignment(order.status);
     const note = reassign
@@ -299,10 +389,10 @@ export class OrdersService {
         where: { id: orderId },
         data: {
           deliveryAgentId,
-          status: 'assigned',
+          status: "assigned",
           statusHistory: {
             create: {
-              status: 'assigned',
+              status: "assigned",
               note,
               changedByUserId: adminId,
             },
@@ -315,8 +405,10 @@ export class OrdersService {
   }
 
   async unassignDeliveryAgent(orderId: string, adminId: string) {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Order not found');
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException("Order not found");
 
     assertUnassignFromStatus(order.status);
 
@@ -325,11 +417,11 @@ export class OrdersService {
         where: { id: orderId },
         data: {
           deliveryAgentId: null,
-          status: 'confirmed',
+          status: "confirmed",
           statusHistory: {
             create: {
-              status: 'confirmed',
-              note: 'Unassigned by admin — ready for reassignment',
+              status: "confirmed",
+              note: "Unassigned by admin — ready for reassignment",
               changedByUserId: adminId,
             },
           },
@@ -344,23 +436,23 @@ export class OrdersService {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, deliveryAgentId: agentId },
     });
-    if (!order) throw new ForbiddenException('Order not assigned to you');
+    if (!order) throw new ForbiddenException("Order not assigned to you");
 
     assertRejectFromStatus(order.status);
 
     const note = reason
       ? `Rejected by driver: ${reason}`
-      : 'Rejected by driver — ready for reassignment';
+      : "Rejected by driver — ready for reassignment";
 
     await this.prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: orderId },
         data: {
           deliveryAgentId: null,
-          status: 'confirmed',
+          status: "confirmed",
           statusHistory: {
             create: {
-              status: 'confirmed',
+              status: "confirmed",
               note,
               changedByUserId: agentId,
             },
@@ -372,7 +464,11 @@ export class OrdersService {
     return this.fetchOrderDetail(orderId);
   }
 
-  async getAllOrders(query: { page?: number; limit?: number; status?: string }) {
+  async getAllOrders(query: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
@@ -384,18 +480,22 @@ export class OrdersService {
         include: {
           items: true,
           address: true,
-          user: { select: { id: true, fullName: true, email: true, phone: true } },
+          user: {
+            select: { id: true, fullName: true, email: true, phone: true },
+          },
           deliveryAgent: { select: { id: true, fullName: true } },
         },
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       this.prisma.order.count({ where }),
     ]);
 
     return {
-      data: data.map((o) => this.formatOrder(o as unknown as Record<string, unknown>)),
+      data: data.map((o) =>
+        this.formatOrder(o as unknown as Record<string, unknown>),
+      ),
       total,
       page,
       limit,

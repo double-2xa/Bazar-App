@@ -46,10 +46,15 @@ export class ProductsService {
       if (query.maxPrice) (where.normalPrice as Record<string, number>).lte = query.maxPrice;
     }
 
-    const orderBy: Record<string, string> = {};
-    if (query.sortBy === 'price') orderBy.normalPrice = query.sortOrder || 'asc';
-    else if (query.sortBy === 'rating') orderBy.ratingAverage = query.sortOrder || 'desc';
-    else orderBy.createdAt = query.sortOrder || 'desc';
+    const sortOrder = query.sortOrder || (query.sortBy === 'price' ? 'asc' : 'desc');
+    let orderBy: Record<string, string> | Record<string, string>[] = {
+      createdAt: sortOrder,
+    };
+    if (query.sortBy === 'price') orderBy = { normalPrice: sortOrder };
+    else if (query.sortBy === 'rating') orderBy = { ratingAverage: sortOrder };
+    else if (query.sortBy === 'sold') {
+      orderBy = [{ soldCount: sortOrder }, { ratingAverage: 'desc' }];
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
