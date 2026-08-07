@@ -22,6 +22,7 @@ import {
   STORE_ORIGIN,
 } from "@doublea/shared";
 import { NotificationsService } from "../notifications/notifications.service";
+import { Prisma } from "@prisma/client";
 
 const ORDER_DETAIL_INCLUDE = {
   items: true,
@@ -40,9 +41,14 @@ export class OrdersService {
     private notifications: NotificationsService,
   ) {}
 
-  private formatOrder(order: Record<string, unknown>) {
+  private formatOrder(
+    order: Record<string, unknown>,
+    options?: { includeCoordinates?: boolean },
+  ) {
     const address = order.address
-      ? this.addressesService.toPublic(order.address as never)
+      ? this.addressesService.toPublic(order.address as never, {
+          includeCoordinates: options?.includeCoordinates === true,
+        })
       : undefined;
 
     return {
@@ -67,7 +73,9 @@ export class OrdersService {
       include: ORDER_DETAIL_INCLUDE,
     });
     if (!order) throw new NotFoundException("Order not found");
-    return this.formatOrder(order as unknown as Record<string, unknown>);
+    return this.formatOrder(order as unknown as Record<string, unknown>, {
+      includeCoordinates: true,
+    });
   }
 
   private resolveStoreOrigin() {
@@ -288,7 +296,9 @@ export class OrdersService {
       throw new ForbiddenException("Access denied");
     }
 
-    return this.formatOrder(order as unknown as Record<string, unknown>);
+    return this.formatOrder(order as unknown as Record<string, unknown>, {
+      includeCoordinates: true,
+    });
   }
 
   async cancelOrder(userId: string, orderId: string) {
@@ -466,11 +476,19 @@ export class OrdersService {
     page?: number;
     limit?: number;
     status?: string;
+    scope?: "active" | "archive";
   }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
-    const where = query.status ? { status: query.status as never } : {};
+    const terminalStatuses = ["delivered", "cancelled"] as const;
+    const where: Prisma.OrderWhereInput = query.status
+      ? { status: query.status as never }
+      : query.scope === "archive"
+        ? { status: { in: [...terminalStatuses] } }
+        : query.scope === "active"
+          ? { status: { notIn: [...terminalStatuses] } }
+          : {};
 
     const [data, total] = await Promise.all([
       this.prisma.order.findMany({

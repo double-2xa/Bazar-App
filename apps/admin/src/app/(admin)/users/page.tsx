@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import api from '@/services/api';
+import AccountEditorDialog, { AccountRecord, AccountRole } from '@/components/accounts/AccountEditorDialog';
 
 type UserTab = 'pending' | 'rejected' | 'active' | 'inactive';
 
@@ -12,13 +13,14 @@ type CompanyProfile = {
   contactPerson?: string;
   companyPhone?: string | null;
   vatNumber?: string;
+  businessAddress?: string;
 };
 
 type UserRow = {
   id: string;
   fullName: string;
   email: string;
-  role: string;
+  role: AccountRole;
   isActive: boolean;
   phone?: string | null;
   companyProfile?: CompanyProfile | null;
@@ -45,6 +47,7 @@ export default function UsersPage() {
   const [deleting, setDeleting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editorAccount, setEditorAccount] = useState<AccountRecord | null | undefined>(undefined);
 
   const loadCounts = useCallback(async () => {
     const entries = await Promise.all(
@@ -140,8 +143,11 @@ export default function UsersPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 16, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>Users</h1>
+      <div className="account-page-header">
+        <div><h1>Users</h1><p>Create accounts, assign roles, and manage access.</p></div>
+        <button type="button" className="btn btn-primary" onClick={() => setEditorAccount(null)}>＋ Create account</button>
+      </div>
+      <div className="account-tabs-row">
         <div className="dash-tabs">
           {TABS.map((t) => (
             <button
@@ -227,6 +233,13 @@ export default function UsersPage() {
                   <td>{statusBadge(u)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        className="btn btn-outline"
+                        style={{ padding: '4px 12px', fontSize: 12 }}
+                        onClick={() => setEditorAccount(u as AccountRecord)}
+                      >
+                        Edit
+                      </button>
                       {tab === 'pending' && u.companyProfile?.id ? (
                         <>
                           <button
@@ -350,6 +363,14 @@ export default function UsersPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {editorAccount !== undefined ? (
+        <AccountEditorDialog
+          account={editorAccount}
+          onClose={() => setEditorAccount(undefined)}
+          onSaved={refresh}
+        />
       ) : null}
     </div>
   );

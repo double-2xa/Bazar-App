@@ -16,8 +16,9 @@ export class CreateProductDto {
   @IsString()
   name!: string;
 
+  @IsOptional()
   @IsString()
-  slug!: string;
+  slug?: string;
 
   @IsString()
   description!: string;
@@ -37,8 +38,9 @@ export class CreateProductDto {
   @Min(0)
   stockQuantity!: number;
 
+  @IsOptional()
   @IsString()
-  sku!: string;
+  sku?: string;
 
   @IsOptional()
   @IsString()

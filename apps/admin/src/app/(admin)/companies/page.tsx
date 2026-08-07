@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/services/api';
+import AccountEditorDialog, { AccountRecord } from '@/components/accounts/AccountEditorDialog';
 
 type CompanyTab = 'pending' | 'rejected' | 'active' | 'inactive';
 
@@ -10,6 +11,7 @@ type CompanyRow = {
   id: string;
   companyName: string;
   vatNumber: string;
+  businessAddress: string;
   contactPerson: string;
   companyPhone?: string | null;
   status: string;
@@ -48,6 +50,7 @@ function CompaniesPageContent() {
   const [removeAllOpen, setRemoveAllOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editorCompany, setEditorCompany] = useState<CompanyRow | null | undefined>(undefined);
 
   const loadCounts = useCallback(async () => {
     const entries = await Promise.all(
@@ -163,17 +166,11 @@ function CompaniesPageContent() {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 16,
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>Company Accounts</h1>
+      <div className="account-page-header">
+        <div><h1>Company Accounts</h1><p>Create and manage approved wholesale accounts.</p></div>
+        <button type="button" className="btn btn-primary" onClick={() => setEditorCompany(null)}>＋ Create company</button>
+      </div>
+      <div className="account-tabs-row">
         <div className="dash-tabs">
           {TABS.map((t) => (
             <button
@@ -252,6 +249,9 @@ function CompaniesPageContent() {
                   <td>{statusBadge()}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {c.user?.id ? (
+                        <button className="btn btn-outline" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => setEditorCompany(c)}>Edit</button>
+                      ) : null}
                       {tab === 'pending' ? (
                         <>
                           <button
@@ -370,6 +370,29 @@ function CompaniesPageContent() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {editorCompany !== undefined ? (
+        <AccountEditorDialog
+          fixedRole="company"
+          account={editorCompany?.user?.id ? ({
+            id: editorCompany.user.id,
+            fullName: editorCompany.user.fullName ?? editorCompany.contactPerson,
+            email: editorCompany.user.email,
+            phone: editorCompany.user.phone,
+            role: 'company',
+            isActive: editorCompany.user.isActive ?? true,
+            companyProfile: {
+              companyName: editorCompany.companyName,
+              vatNumber: editorCompany.vatNumber,
+              businessAddress: editorCompany.businessAddress,
+              contactPerson: editorCompany.contactPerson,
+              companyPhone: editorCompany.companyPhone ?? '',
+            },
+          } satisfies AccountRecord) : null}
+          onClose={() => setEditorCompany(undefined)}
+          onSaved={refresh}
+        />
       ) : null}
     </div>
   );

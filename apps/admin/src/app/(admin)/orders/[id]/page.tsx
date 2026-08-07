@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import type { Order, DeliveryAgentSummary } from '@doublea/shared';
 import { ADMIN_ORDER_TRANSITIONS } from '@doublea/shared';
 import { adminOrdersApi, deliveryAgentsApi } from '@/services/orders';
+import OrderDeliveryLocationPanel from '@/components/orders/OrderDeliveryLocationPanel';
 import {
   canAssignDriver,
   canUnassignDriver,
@@ -172,6 +173,18 @@ export default function OrderDetailPage() {
   const showUnassign = canUnassignDriver(order.status);
   const activeAgents = agents.filter((a) => a.isActive);
   const waitingForDriver = delivery.needsAction;
+  const deliveryLatitude = order.address?.latitude;
+  const deliveryLongitude = order.address?.longitude;
+  const hasExactDeliveryLocation =
+    order.address?.hasExactLocation === true &&
+    typeof deliveryLatitude === 'number' &&
+    Number.isFinite(deliveryLatitude) &&
+    deliveryLatitude >= -90 &&
+    deliveryLatitude <= 90 &&
+    typeof deliveryLongitude === 'number' &&
+    Number.isFinite(deliveryLongitude) &&
+    deliveryLongitude >= -180 &&
+    deliveryLongitude <= 180;
 
   const step1Done = true;
   const step2Done = !preparing;
@@ -231,12 +244,12 @@ export default function OrderDetailPage() {
       </ol>
 
       {/* Step 1 — Order information */}
-      <section className="card" style={{ marginBottom: 24 }}>
+      <section className="card order-information-card" style={{ marginBottom: 24 }}>
         <div className="order-section-heading">
           <span className="order-section-heading__step">Step 1</span>
           <h2>Order information</h2>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        <div className="order-information-grid">
           <div>
             <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>
               Customer
@@ -278,6 +291,29 @@ export default function OrderDetailPage() {
               <p style={{ color: 'var(--muted)' }}>No address on file</p>
             )}
           </div>
+          <article className="order-info-location">
+            <div className="order-info-location__heading">
+              <div>
+                <span>Delivery pin</span>
+                <strong>{hasExactDeliveryLocation ? 'Exact customer location' : 'Location unavailable'}</strong>
+              </div>
+              {hasExactDeliveryLocation ? <span className="badge badge-success">Secure GPS</span> : null}
+            </div>
+            {hasExactDeliveryLocation ? (
+              <OrderDeliveryLocationPanel
+                latitude={deliveryLatitude}
+                longitude={deliveryLongitude}
+                accuracyM={order.address?.locationAccuracyM ?? null}
+                capturedAt={order.address?.locationCapturedAt ?? null}
+              />
+            ) : (
+              <div className="order-location-empty">
+                <span className="order-location-empty__pin" aria-hidden>⌖</span>
+                <strong>No exact location to display</strong>
+                <p>The written delivery address remains available for the driver.</p>
+              </div>
+            )}
+          </article>
         </div>
         {order.customerNote ? (
           <p style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
@@ -602,18 +638,32 @@ export default function OrderDetailPage() {
           )}
         </div>
 
-        <div className="card">
-          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Status history</h2>
+        <div className="card order-status-history-card">
+          <div className="order-status-history__header">
+            <h2>Status history</h2>
+            {(order.statusHistory?.length ?? 0) > 3 ? (
+              <span className="order-status-history__hint">Latest first · scroll for older</span>
+            ) : null}
+          </div>
           {order.statusHistory?.length ? (
-            order.statusHistory.map((entry, index) => (
-              <div key={`${entry.status}-${entry.createdAt}-${index}`} style={{ marginBottom: 12 }}>
-                <strong>{formatStatusLabel(entry.status)}</strong>
-                <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-                  {new Date(entry.createdAt).toLocaleString()}
-                  {entry.note ? ` — ${entry.note}` : ''}
-                </p>
-              </div>
-            ))
+            <div
+              className="order-status-history__scroll"
+              tabIndex={0}
+              role="region"
+              aria-label="Order status history, newest first"
+            >
+              {[...order.statusHistory]
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .map((entry, index) => (
+                  <div key={`${entry.status}-${entry.createdAt}-${index}`} className="order-status-history__entry">
+                    <strong>{formatStatusLabel(entry.status)}</strong>
+                    <p>
+                      {new Date(entry.createdAt).toLocaleString()}
+                      {entry.note ? ` — ${entry.note}` : ''}
+                    </p>
+                  </div>
+                ))}
+            </div>
           ) : (
             <p style={{ color: 'var(--muted)' }}>No status history yet</p>
           )}

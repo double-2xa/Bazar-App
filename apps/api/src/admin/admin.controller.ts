@@ -1,7 +1,7 @@
 import { Controller, Get, Patch, Post, Delete, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { OrdersService } from '../orders/orders.service';
-import { CreateDeliveryAgentDto } from './dto/admin.dto';
+import { CreateAdminUserDto, CreateDeliveryAgentDto, UpdateAdminUserDto, UpdateDeliveryAgentDto } from './dto/admin.dto';
 import { UpdateOrderStatusDto, AssignDeliveryAgentDto } from '../orders/dto/order.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -82,16 +82,40 @@ export class AdminController {
     return this.adminService.getDeliveryAgents();
   }
 
+  @Post('users')
+  createUser(@Body() dto: CreateAdminUserDto) {
+    return this.adminService.createUser(dto);
+  }
+
+  @Patch('users/:id')
+  updateUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAdminUserDto,
+    @CurrentUser('sub') adminId: string,
+  ) {
+    return this.adminService.updateUser(id, dto, adminId);
+  }
+
+  @Patch('delivery-agents/:id')
+  updateDeliveryAgent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDeliveryAgentDto,
+  ) {
+    return this.adminService.updateDeliveryAgent(id, dto);
+  }
+
   @Get('orders')
   getOrders(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('status') status?: string,
+    @Query('scope') scope?: 'active' | 'archive',
   ) {
     return this.ordersService.getAllOrders({
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 20,
       status,
+      scope,
     });
   }
 

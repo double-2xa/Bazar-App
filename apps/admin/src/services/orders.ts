@@ -5,6 +5,7 @@ export type AdminOrdersQuery = {
   page?: number;
   limit?: number;
   status?: string;
+  scope?: 'active' | 'archive';
 };
 
 export type CreateDeliveryAgentInput = {
@@ -12,6 +13,14 @@ export type CreateDeliveryAgentInput = {
   password: string;
   fullName: string;
   phone?: string;
+};
+
+export type UpdateDeliveryAgentInput = {
+  email: string;
+  fullName: string;
+  phone?: string;
+  password?: string;
+  isActive: boolean;
 };
 
 export const adminOrdersApi = {
@@ -38,4 +47,7 @@ export const deliveryAgentsApi = {
 
   create: (data: CreateDeliveryAgentInput) =>
     api.post('/admin/delivery-agents', data).then((r) => r.data),
+
+  update: (id: string, data: UpdateDeliveryAgentInput) =>
+    api.patch(`/admin/delivery-agents/${id}`, data).then((r) => r.data),
 };

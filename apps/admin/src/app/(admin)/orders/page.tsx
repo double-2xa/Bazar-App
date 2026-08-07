@@ -19,8 +19,17 @@ const DELIVERY_FILTERS: { value: DeliveryFilter; label: string }[] = [
   { value: 'unassigned', label: 'Unassigned' },
   { value: 'assigned', label: 'Assigned' },
   { value: 'in_delivery', label: 'In delivery' },
-  { value: 'delivered', label: 'Delivered' },
 ];
+
+type OrderView = 'active' | 'archive';
+type ArchiveStatus = 'all' | 'delivered' | 'cancelled';
+
+function parseOrderView(searchParams: URLSearchParams): OrderView {
+  const legacyTerminalFilter =
+    searchParams.get('deliveryFilter') === 'delivered' ||
+    ['delivered', 'cancelled'].includes(searchParams.get('status') ?? '');
+  return searchParams.get('view') === 'archive' || legacyTerminalFilter ? 'archive' : 'active';
+}
 
 const VALID_DELIVERY_FILTERS = new Set<DeliveryFilter>(
   DELIVERY_FILTERS.map((f) => f.value),
@@ -42,11 +51,14 @@ function allowedStatuses(current: string): string[] {
 function OrdersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const orderView = parseOrderView(searchParams);
   const [orders, setOrders] = useState<Order[]>([]);
   const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>(() =>
     parseDeliveryFilter(searchParams.get('deliveryFilter')),
   );
   const statusFilter = searchParams.get('status');
+  const archiveStatus: ArchiveStatus =
+    statusFilter === 'delivered' || statusFilter === 'cancelled' ? statusFilter : 'all';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -67,11 +79,24 @@ function OrdersPageContent() {
     router.replace(qs ? `/orders?${qs}` : '/orders');
   };
 
+  const setOrderView = (view: OrderView) => {
+    const params = new URLSearchParams();
+    if (view === 'archive') params.set('view', 'archive');
+    router.replace(params.size ? `/orders?${params}` : '/orders');
+  };
+
+  const setArchiveStatus = (status: ArchiveStatus) => {
+    const params = new URLSearchParams();
+    params.set('view', 'archive');
+    if (status !== 'all') params.set('status', status);
+    router.replace(`/orders?${params}`);
+  };
+
   const load = useCallback(() => {
     setError('');
     setLoading(true);
     adminOrdersApi
-      .list({ limit: 100 })
+      .list({ limit: 100, scope: orderView })
       .then((res) => setOrders(res.data))
       .catch((err) => {
         if (err?.response?.status !== 401) {
@@ -79,7 +104,7 @@ function OrdersPageContent() {
         }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [orderView]);
 
   useEffect(() => {
     load();
@@ -88,11 +113,11 @@ function OrdersPageContent() {
   const filteredOrders = useMemo(
     () =>
       orders.filter((order) => {
-        if (!matchesDeliveryFilter(order, deliveryFilter)) return false;
+        if (orderView === 'active' && !matchesDeliveryFilter(order, deliveryFilter)) return false;
         if (statusFilter && order.status !== statusFilter) return false;
         return true;
       }),
-    [orders, deliveryFilter, statusFilter],
+    [orders, deliveryFilter, orderView, statusFilter],
   );
 
   const unassignedCount = useMemo(
@@ -122,10 +147,12 @@ function OrdersPageContent() {
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 700 }}>Orders</h1>
           <p style={{ color: 'var(--muted)', marginTop: 4 }}>
-            Manage delivery assignments and track order progress.
+            {orderView === 'active'
+              ? 'Manage delivery assignments and orders currently in progress.'
+              : 'Review delivered and cancelled orders without cluttering active operations.'}
           </p>
         </div>
-        {unassignedCount > 0 && (
+        {orderView === 'active' && unassignedCount > 0 && (
           <span className="badge badge-warning" style={{ fontSize: 13, padding: '8px 14px' }}>
             {unassignedCount} awaiting driver assignment
           </span>
@@ -134,25 +161,51 @@ function OrdersPageContent() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        {DELIVERY_FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            className={deliveryFilter === f.value ? 'btn btn-primary' : 'btn btn-outline'}
-            style={{ fontSize: 13, padding: '8px 14px' }}
-            onClick={() => setFilter(f.value)}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="orders-view-switch" role="tablist" aria-label="Order groups">
+        <button type="button" role="tab" aria-selected={orderView === 'active'} className={orderView === 'active' ? 'is-selected' : ''} onClick={() => setOrderView('active')}>
+          Active orders
+        </button>
+        <button type="button" role="tab" aria-selected={orderView === 'archive'} className={orderView === 'archive' ? 'is-selected' : ''} onClick={() => setOrderView('archive')}>
+          Completed archive
+        </button>
       </div>
+
+      {orderView === 'active' ? (
+        <div className="orders-filter-row">
+          {DELIVERY_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              className={deliveryFilter === f.value ? 'btn btn-primary' : 'btn btn-outline'}
+              onClick={() => setFilter(f.value)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="orders-filter-row" aria-label="Completed order status">
+          {(['all', 'delivered', 'cancelled'] as const).map((status) => (
+            <button
+              key={status}
+              type="button"
+              className={archiveStatus === status ? 'btn btn-primary' : 'btn btn-outline'}
+              onClick={() => setArchiveStatus(status)}
+            >
+              {status === 'all' ? 'All completed' : formatStatusLabel(status)}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {loading ? (
           <p style={{ padding: 24, color: 'var(--muted)' }}>Loading orders...</p>
         ) : filteredOrders.length === 0 ? (
-          <p style={{ padding: 24, color: 'var(--muted)' }}>No orders match this filter.</p>
+          <div className="orders-empty-state">
+            <strong>{orderView === 'archive' ? 'No completed orders yet' : 'No active orders match this filter'}</strong>
+            <p>{orderView === 'archive' ? 'Delivered and cancelled orders will appear here automatically.' : 'Try another operational filter.'}</p>
+          </div>
         ) : (
           <table className="table">
             <thead>

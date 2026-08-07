@@ -12,7 +12,7 @@ import { AddressesService } from "../addresses/addresses.service";
 import { LocationsService } from "../locations/locations.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { sanitizeUser } from "../common/utils";
-import { CreateDeliveryAgentDto } from "./dto/admin.dto";
+import { CreateAdminUserDto, CreateDeliveryAgentDto, UpdateAdminUserDto, UpdateDeliveryAgentDto } from "./dto/admin.dto";
 import { decimalToNumber } from "../common/utils";
 import {
   getBeirutStartOfDay,
@@ -840,6 +840,131 @@ export class AdminService {
       createdAt: agent.createdAt,
       activeOrderCount: agent._count.assignedOrders,
     }));
+  }
+
+  private companyData(dto: CreateAdminUserDto | UpdateAdminUserDto): {
+    companyName: string;
+    vatNumber: string;
+    businessAddress: string;
+    contactPerson: string;
+    companyPhone: string;
+  } {
+    const values = {
+      companyName: dto.companyName?.trim(),
+      vatNumber: dto.vatNumber?.trim(),
+      businessAddress: dto.businessAddress?.trim(),
+      contactPerson: dto.contactPerson?.trim(),
+      companyPhone: dto.companyPhone?.trim(),
+    };
+    if (Object.values(values).some((value) => !value)) {
+      throw new BadRequestException("All company details are required for a company account");
+    }
+    return {
+      companyName: values.companyName!,
+      vatNumber: values.vatNumber!,
+      businessAddress: values.businessAddress!,
+      contactPerson: values.contactPerson!,
+      companyPhone: values.companyPhone!,
+    };
+  }
+
+  async createUser(dto: CreateAdminUserDto) {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) throw new ConflictException("Email already exists");
+
+    const passwordHash = await this.authService.hashPassword(dto.password);
+    const company = dto.role === "company" ? this.companyData(dto) : null;
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        fullName: dto.fullName.trim(),
+        phone: dto.phone?.trim() || null,
+        role: dto.role,
+        isActive: true,
+        ...(company
+          ? { companyProfile: { create: { ...company, status: "approved" } } }
+          : {}),
+      },
+      include: { companyProfile: true },
+    });
+    return sanitizeUser(user);
+  }
+
+  async updateUser(id: string, dto: UpdateAdminUserDto, adminId: string) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      include: { companyProfile: true },
+    });
+    if (!existing) throw new NotFoundException("User not found");
+    if (id === adminId && dto.role !== "admin") {
+      throw new ForbiddenException("You cannot remove your own admin role");
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const emailOwner = await this.prisma.user.findUnique({ where: { email } });
+    if (emailOwner && emailOwner.id !== id) throw new ConflictException("Email already exists");
+
+    const passwordHash = dto.password
+      ? await this.authService.hashPassword(dto.password)
+      : undefined;
+    const company = dto.role === "company" ? this.companyData(dto) : null;
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      if (company) {
+        await tx.companyProfile.upsert({
+          where: { userId: id },
+          create: { userId: id, ...company, status: "approved" },
+          update: company,
+        });
+      } else if (existing.companyProfile) {
+        await tx.companyProfile.delete({ where: { userId: id } });
+      }
+
+      return tx.user.update({
+        where: { id },
+        data: {
+          email,
+          fullName: dto.fullName.trim(),
+          phone: dto.phone?.trim() || null,
+          role: dto.role,
+          isActive: dto.isActive,
+          ...(passwordHash ? { passwordHash, authProvider: "local" } : {}),
+        },
+        include: { companyProfile: true },
+      });
+    });
+    return sanitizeUser(user);
+  }
+
+  async updateDeliveryAgent(id: string, dto: UpdateDeliveryAgentDto) {
+    const agent = await this.prisma.user.findUnique({ where: { id } });
+    if (!agent || agent.role !== "delivery_agent") {
+      throw new NotFoundException("Delivery agent not found");
+    }
+
+    const emailOwner = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (emailOwner && emailOwner.id !== id) {
+      throw new ConflictException("Email already exists");
+    }
+
+    const passwordHash = dto.password
+      ? await this.authService.hashPassword(dto.password)
+      : undefined;
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        email: dto.email,
+        fullName: dto.fullName,
+        phone: dto.phone || null,
+        isActive: dto.isActive,
+        ...(passwordHash ? { passwordHash } : {}),
+      },
+    });
+
+    return sanitizeUser(updated);
   }
 
   async getAllReviews() {
