@@ -4,9 +4,12 @@ import { router } from 'expo-router';
 import { BRAND } from '@doublea/shared';
 import { categoriesApi } from '@/services/endpoints';
 import { CategoryCard, EmptyState, ScreenContainer, LoadingSkeleton } from '@/components';
+import { useCategoryGridColumns, useProductCardWidth } from '@/layout/webLayout';
 import { colors, spacing, typography } from '@/theme';
 
 export default function CategoriesScreen() {
+  const columns = useCategoryGridColumns();
+  const tileWidth = useProductCardWidth();
   const { data: categories, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesApi.getAll,
@@ -21,8 +24,8 @@ export default function CategoriesScreen() {
 
       {isLoading ? (
         <View style={styles.grid}>
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <LoadingSkeleton key={i} width="48%" height={160} style={styles.skeleton} />
+          {[1, 2, 3, 4, 5, 6, 7, 8].slice(0, columns * 2).map((i) => (
+            <LoadingSkeleton key={i} width={tileWidth} height={160} style={styles.skeleton} />
           ))}
         </View>
       ) : isError ? (
@@ -38,9 +41,10 @@ export default function CategoriesScreen() {
         />
       ) : (
         <FlatList
+          key={`categories-grid-${columns}`}
           data={categories}
           keyExtractor={(item) => item.id}
-          numColumns={2}
+          numColumns={columns}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.list}
           refreshControl={

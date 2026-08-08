@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { decimalToNumber, generateOrderNumber, assertCompanyCanShop } from "../common/utils";
@@ -23,6 +24,7 @@ import {
 } from "@doublea/shared";
 import { NotificationsService } from "../notifications/notifications.service";
 import { Prisma } from "@prisma/client";
+import { createHash } from "crypto";
 
 const ORDER_DETAIL_INCLUDE = {
   items: true,
@@ -112,7 +114,48 @@ export class OrdersService {
     return this.quoteDeliveryForAddress(address);
   }
 
-  async create(userId: string, userRole: string, dto: CreateOrderDto) {
+  private checkoutHash(dto: CreateOrderDto): string {
+    const normalized = {
+      addressId: dto.addressId,
+      paymentMethod: dto.paymentMethod || "cash_on_delivery",
+      customerNote: dto.customerNote?.trim() || null,
+      couponCode: dto.couponCode?.trim().toUpperCase() || null,
+      items: [...dto.items]
+        .map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          selectedPriceType: item.selectedPriceType || "normal",
+        }))
+        .sort((a, b) => `${a.productId}:${a.selectedPriceType}`.localeCompare(`${b.productId}:${b.selectedPriceType}`)),
+    };
+    return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+  }
+
+  private async findIdempotentOrder(userId: string, idempotencyKey: string) {
+    return this.prisma.order.findFirst({
+      where: { userId, idempotencyKey },
+      include: {
+        items: true,
+        address: true,
+        user: { select: { id: true, fullName: true, email: true, phone: true } },
+      },
+    });
+  }
+
+  async create(userId: string, userRole: string, dto: CreateOrderDto, idempotencyKey: string) {
+    const idempotencyHash = this.checkoutHash(dto);
+    const existingOrder = await this.findIdempotentOrder(userId, idempotencyKey);
+    if (existingOrder) {
+      if (existingOrder.idempotencyHash !== idempotencyHash) {
+        throw new ConflictException("This idempotency key was already used for a different checkout");
+      }
+      return this.formatOrder(existingOrder as unknown as Record<string, unknown>);
+    }
+
+    const uniqueItems = new Set(dto.items.map((item) => `${item.productId}:${item.selectedPriceType || "normal"}`));
+    if (uniqueItems.size !== dto.items.length) {
+      throw new BadRequestException("Duplicate products must be combined into one order item");
+    }
     const address = await this.prisma.address.findFirst({
       where: { id: dto.addressId, userId },
     });
@@ -202,61 +245,97 @@ export class OrdersService {
     const taxAmount = taxable * DEFAULT_TAX_RATE;
     const totalAmount = taxable + deliveryFee + taxAmount;
 
-    const order = await this.prisma.$transaction(async (tx) => {
-      for (const item of orderItems) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stockQuantity: { decrement: item.quantity },
-            soldCount: { increment: item.quantity },
-          },
-        });
-      }
+    let order: Awaited<ReturnType<typeof this.findIdempotentOrder>> = null;
+    let createdNewOrder = false;
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        order = await this.prisma.$transaction(async (tx) => {
+          for (const item of orderItems) {
+            const stockUpdate = await tx.product.updateMany({
+              where: {
+                id: item.productId,
+                isActive: true,
+                stockQuantity: { gte: item.quantity },
+              },
+              data: {
+                stockQuantity: { decrement: item.quantity },
+                soldCount: { increment: item.quantity },
+              },
+            });
+            if (stockUpdate.count !== 1) {
+              throw new BadRequestException(`Insufficient stock for ${item.productName}`);
+            }
+          }
 
-      const created = await tx.order.create({
-        data: {
-          orderNumber: generateOrderNumber(),
-          userId,
-          addressId: dto.addressId,
-          paymentMethod: dto.paymentMethod || "cash_on_delivery",
-          subtotal,
-          deliveryFee,
-          discountAmount,
-          taxAmount,
-          totalAmount,
-          customerNote: dto.customerNote,
-          items: { create: orderItems },
-          statusHistory: {
-            create: {
-              status: "pending",
-              note: "Order placed",
-              changedByUserId: userId,
+          const created = await tx.order.create({
+            data: {
+              orderNumber: generateOrderNumber(),
+              userId,
+              addressId: dto.addressId,
+              idempotencyKey,
+              idempotencyHash,
+              paymentMethod: dto.paymentMethod || "cash_on_delivery",
+              subtotal,
+              deliveryFee,
+              discountAmount,
+              taxAmount,
+              totalAmount,
+              customerNote: dto.customerNote,
+              items: { create: orderItems },
+              statusHistory: {
+                create: {
+                  status: "pending",
+                  note: "Order placed",
+                  changedByUserId: userId,
+                },
+              },
             },
-          },
-        },
-        include: {
-          items: true,
-          address: true,
-          user: {
-            select: { id: true, fullName: true, email: true, phone: true },
-          },
-        },
-      });
+            include: {
+              items: true,
+              address: true,
+              user: { select: { id: true, fullName: true, email: true, phone: true } },
+            },
+          });
 
-      await tx.cartItem.deleteMany({
-        where: {
-          cart: { userId },
-          productId: { in: orderItems.map((i) => i.productId) },
-        },
-      });
+          await tx.cartItem.deleteMany({
+            where: {
+              cart: { userId },
+              productId: { in: orderItems.map((i) => i.productId) },
+            },
+          });
 
-      return created;
-    });
+          return created;
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        createdNewOrder = true;
+        break;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          const duplicate = await this.findIdempotentOrder(userId, idempotencyKey);
+          if (duplicate) {
+            if (duplicate.idempotencyHash !== idempotencyHash) {
+              throw new ConflictException("This idempotency key was already used for a different checkout");
+            }
+            order = duplicate;
+            break;
+          }
+          if (attempt < maxAttempts) continue;
+        }
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034" && attempt < maxAttempts) {
+          continue;
+        }
+        throw error;
+      }
+    }
 
-    try {
+    if (!order) throw new ConflictException("Checkout could not be completed safely. Please retry.");
+
+    if (createdNewOrder) {
+      try {
       await this.notifications.notifyDeliveryAgentsNewOrder(order);
-    } catch {
+      } catch {
       /* order already created — notification failure must not fail checkout */
+      }
     }
 
     return this.formatOrder(order as unknown as Record<string, unknown>);
@@ -312,6 +391,14 @@ export class OrdersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, userId, status: "pending" },
+        data: { status: "cancelled" },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictException("Order status changed before cancellation completed");
+      }
+
       for (const item of order.items) {
         await tx.product.update({
           where: { id: item.productId },
@@ -321,21 +408,19 @@ export class OrdersService {
           },
         });
       }
-      return tx.order.update({
-        where: { id: orderId },
+      await tx.orderStatusHistory.create({
         data: {
+          orderId,
           status: "cancelled",
-          statusHistory: {
-            create: {
-              status: "cancelled",
-              note: "Cancelled by customer",
-              changedByUserId: userId,
-            },
-          },
+          note: "Cancelled by customer",
+          changedByUserId: userId,
         },
+      });
+      return tx.order.findUniqueOrThrow({
+        where: { id: orderId },
         include: { items: true, address: true },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return this.formatOrder(updated as unknown as Record<string, unknown>);
   }

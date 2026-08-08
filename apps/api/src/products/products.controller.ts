@@ -16,7 +16,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { resolve } from 'path';
 import { ProductsService } from './products.service';
-import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
+import { AdminProductQueryDto, CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { Public, Roles } from '../common/decorators/roles.decorator';
 
 @Controller('products')
@@ -25,27 +25,10 @@ export class ProductsController {
 
   @Public()
   @Get()
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('categoryId') categoryId?: string,
-    @Query('search') search?: string,
-    @Query('featured') featured?: string,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-    @Query('minPrice') minPrice?: string,
-    @Query('maxPrice') maxPrice?: string,
-  ) {
+  findAll(@Query() query: ProductQueryDto) {
     return this.productsService.findAll({
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 20,
-      categoryId,
-      search,
-      featured: featured === 'true',
-      sortBy,
-      sortOrder,
-      minPrice: minPrice ? parseFloat(minPrice) : undefined,
-      maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+      ...query,
+      featured: query.featured === 'true',
     });
   }
 
@@ -57,15 +40,9 @@ export class ProductsController {
 
   @Roles('admin')
   @Get('admin/all')
-  findAllForAdmin(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('search') search?: string,
-  ) {
+  findAllForAdmin(@Query() query: AdminProductQueryDto) {
     return this.productsService.findAll({
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 50,
-      search,
+      ...query,
       includeInactive: true,
     });
   }

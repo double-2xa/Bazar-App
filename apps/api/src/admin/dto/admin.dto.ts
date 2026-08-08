@@ -1,5 +1,26 @@
-import { IsBoolean, IsEmail, IsEnum, IsString, MinLength, IsOptional } from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { IsBoolean, IsEmail, IsEnum, IsIn, IsString, MinLength, IsOptional } from 'class-validator';
+import { OrderStatus, UserRole } from '@prisma/client';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+
+export class AdminUsersQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+
+  @IsOptional()
+  @IsIn(['pending', 'rejected', 'active', 'inactive'])
+  status?: 'pending' | 'rejected' | 'active' | 'inactive';
+}
+
+export class AdminOrdersQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsEnum(OrderStatus)
+  status?: OrderStatus;
+
+  @IsOptional()
+  @IsIn(['active', 'archive'])
+  scope?: 'active' | 'archive';
+}
 
 export class CreateAdminUserDto {
   @IsEmail()

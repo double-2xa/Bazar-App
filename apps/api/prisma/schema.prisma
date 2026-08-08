@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 enum UserRole {
@@ -76,6 +77,9 @@ model User {
   orderStatusChanges OrderStatusHistory[]
   deliveryProofs   DeliveryProof[]
   notifications    Notification[]
+
+  @@index([role, isActive])
+  @@index([createdAt])
 }
 
 model Notification {
@@ -100,6 +104,9 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model CompanyProfile {
@@ -114,6 +121,8 @@ model CompanyProfile {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }
 
 model Category {
@@ -153,6 +162,10 @@ model Product {
   orderItems    OrderItem[]
   wishlist      Wishlist[]
   reviews       Review[]
+
+  @@index([categoryId, isActive])
+  @@index([isActive, createdAt])
+  @@index([stockQuantity])
 }
 
 model ProductImage {
@@ -161,6 +174,8 @@ model ProductImage {
   imageUrl  String
   sortOrder Int     @default(0)
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
 }
 
 model Address {
@@ -203,6 +218,7 @@ model Address {
   @@index([governorate, district, city])
   @@index([locationGeohash])
   @@index([hasExactLocation])
+  @@index([userId, isDefault])
 }
 
 model Cart {
@@ -243,6 +259,8 @@ model Order {
   taxAmount       Decimal       @db.Decimal(10, 2)
   totalAmount     Decimal       @db.Decimal(10, 2)
   customerNote    String?
+  idempotencyKey  String?
+  idempotencyHash String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   user            User          @relation("CustomerOrders", fields: [userId], references: [id])
@@ -252,6 +270,12 @@ model Order {
   statusHistory   OrderStatusHistory[]
   deliveryProof   DeliveryProof?
   reviews         Review[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([deliveryAgentId, status, createdAt])
+  @@index([paymentMethod, paymentStatus, status])
 }
 
 model OrderItem {
@@ -265,6 +289,9 @@ model OrderItem {
   totalPrice        Decimal   @db.Decimal(10, 2)
   order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product           Product   @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model OrderStatusHistory {
@@ -276,6 +303,9 @@ model OrderStatusHistory {
   createdAt       DateTime    @default(now())
   order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   changedBy       User?       @relation(fields: [changedByUserId], references: [id])
+
+  @@index([orderId, createdAt])
+  @@index([changedByUserId])
 }
 
 model DeliveryProof {
@@ -291,6 +321,8 @@ model DeliveryProof {
   longitude               Float?
   order                   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   deliveryAgent           User     @relation(fields: [deliveryAgentId], references: [id])
+
+  @@index([deliveryAgentId])
 }
 
 model Wishlist {

@@ -14,7 +14,7 @@
     "axios": "^1.6.8",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
-    "next": "^15.5.20",
+    "next": "16.3.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.51.4",

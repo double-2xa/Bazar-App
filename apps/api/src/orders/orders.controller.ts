@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Headers, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { isUUID } from 'class-validator';
+import { BadRequestException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -9,12 +12,17 @@ export class OrdersController {
   constructor(private ordersService: OrdersService) {}
 
   @Post()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   create(
     @CurrentUser('sub') userId: string,
     @CurrentUser('role') role: string,
     @Body() dto: CreateOrderDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.ordersService.create(userId, role, dto);
+    if (!idempotencyKey || !isUUID(idempotencyKey, '4')) {
+      throw new BadRequestException('Idempotency-Key header must be a UUID v4');
+    }
+    return this.ordersService.create(userId, role, dto, idempotencyKey);
   }
 
   @Get('my-orders')

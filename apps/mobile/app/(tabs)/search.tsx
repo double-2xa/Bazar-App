@@ -6,6 +6,7 @@ import { productsApi } from '@/services/endpoints';
 import { BRAND } from '@doublea/shared';
 import { ProductCard, ProductCardSkeleton, EmptyState, GlassSearchBar, ScreenContainer } from '@/components';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useProductGridColumns } from '@/layout/webLayout';
 import { colors, spacing, radius, typography } from '@/theme';
 
 const PRICE_FILTERS = [
@@ -17,6 +18,7 @@ export default function SearchScreen() {
   const [search, setSearch] = useState('');
   const [priceOrder, setPriceOrder] = useState<(typeof PRICE_FILTERS)[number]['key']>('asc');
   const debouncedSearch = useDebounce(search, 400);
+  const columns = useProductGridColumns();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['products', 'search', debouncedSearch, priceOrder],
@@ -77,9 +79,10 @@ export default function SearchScreen() {
         />
       ) : (
         <FlatList
+          key={`search-grid-${columns}`}
           data={data?.data}
           keyExtractor={(item) => item.id}
-          numColumns={2}
+          numColumns={columns}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.list}
           ListEmptyComponent={

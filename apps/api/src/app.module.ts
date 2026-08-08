@@ -17,6 +17,10 @@ import { AdminModule } from './admin/admin.module';
 import { BannersModule } from './banners/banners.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { LocationsModule } from './locations/locations.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { validateEnvironment } from './config/environment';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -27,6 +31,11 @@ import { LocationsModule } from './locations/locations.module';
         join(__dirname, '../../.env'),
         '.env',
       ],
+      validate: validateEnvironment,
+    }),
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', ttl: 60000, limit: 120 }],
+      errorMessage: 'Too many requests. Please wait and try again.',
     }),
     PrismaModule,
     AuthModule,
@@ -43,7 +52,9 @@ import { LocationsModule } from './locations/locations.module';
     AdminModule,
     BannersModule,
     WishlistModule,
+    HealthModule,
   ],
   controllers: [AppController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

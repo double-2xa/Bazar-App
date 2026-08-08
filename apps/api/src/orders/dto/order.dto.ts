@@ -8,6 +8,10 @@ import {
   IsInt,
   Min,
   IsIn,
+  ArrayMinSize,
+  ArrayMaxSize,
+  Max,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod, PriceType } from '@prisma/client';
@@ -19,6 +23,7 @@ class OrderItemInput {
 
   @IsInt()
   @Min(1)
+  @Max(1000)
   quantity!: number;
 
   @IsOptional()
@@ -36,13 +41,17 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   customerNote?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   couponCode?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => OrderItemInput)
   items!: OrderItemInput[];
@@ -54,6 +63,7 @@ export class UpdateOrderStatusDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   note?: string;
 }
 

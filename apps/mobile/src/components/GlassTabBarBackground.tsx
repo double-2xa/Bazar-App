@@ -39,6 +39,11 @@ export const glassTabBarStyle = {
     android: {
       elevation: 8,
     },
+    web: {
+      bottom: 12,
+      // Keep the floating bar inside the web phone frame
+      boxShadow: '0 8px 24px rgba(31, 31, 31, 0.14)',
+    } as object,
   }),
 };
 

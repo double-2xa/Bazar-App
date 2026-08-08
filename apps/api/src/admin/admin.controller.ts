@@ -1,7 +1,8 @@
 import { Controller, Get, Patch, Post, Delete, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { OrdersService } from '../orders/orders.service';
-import { CreateAdminUserDto, CreateDeliveryAgentDto, UpdateAdminUserDto, UpdateDeliveryAgentDto } from './dto/admin.dto';
+import { AdminOrdersQueryDto, AdminUsersQueryDto, CreateAdminUserDto, CreateDeliveryAgentDto, UpdateAdminUserDto, UpdateDeliveryAgentDto } from './dto/admin.dto';
+import { Throttle } from '@nestjs/throttler';
 import { UpdateOrderStatusDto, AssignDeliveryAgentDto } from '../orders/dto/order.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -15,23 +16,14 @@ export class AdminController {
   ) {}
 
   @Get('dashboard')
+  @Throttle({ default: { limit: 12, ttl: 60000 } })
   getDashboard() {
     return this.adminService.getDashboardStats();
   }
 
   @Get('users')
-  getUsers(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('role') role?: string,
-    @Query('status') status?: string,
-  ) {
-    return this.adminService.getUsers({
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 20,
-      role,
-      status,
-    });
+  getUsers(@Query() query: AdminUsersQueryDto) {
+    return this.adminService.getUsers(query);
   }
 
   @Patch('users/:id/activate')
@@ -105,18 +97,8 @@ export class AdminController {
   }
 
   @Get('orders')
-  getOrders(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('status') status?: string,
-    @Query('scope') scope?: 'active' | 'archive',
-  ) {
-    return this.ordersService.getAllOrders({
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 20,
-      status,
-      scope,
-    });
+  getOrders(@Query() query: AdminOrdersQueryDto) {
+    return this.ordersService.getAllOrders(query);
   }
 
   @Get('orders/:id')

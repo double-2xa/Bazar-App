@@ -5,7 +5,6 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Product } from '@doublea/shared';
@@ -14,16 +13,16 @@ import { PriceDisplay } from './PriceDisplay';
 import { Badge } from './Badge';
 import { useAuthStore } from '../store/authStore';
 import { useWishlist } from '@/hooks/useWishlist';
-
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - spacing.md * 3) / 2;
+import { useProductCardWidth } from '@/layout/webLayout';
 
 interface ProductCardProps {
   product: Product;
   onPress: () => void;
+  onAddToCart?: () => void;
 }
 
 export function ProductCard({ product, onPress }: ProductCardProps) {
+  const cardWidth = useProductCardWidth();
   const { user, showCompanyPrice } = useAuthStore();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const wishlisted = isWishlisted(product.id);
@@ -38,7 +37,7 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
       : 0;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+    <TouchableOpacity style={[styles.card, { width: cardWidth }]} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.imageContainer}>
         <Image
           source={{ uri: product.imageUrl || product.images?.[0]?.imageUrl || '' }}
@@ -83,7 +82,6 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,

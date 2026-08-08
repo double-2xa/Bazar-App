@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import * as Crypto from 'expo-crypto';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -16,6 +17,7 @@ export default function CheckoutScreen() {
   const [couponCode, setCouponCode] = useState('');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const idempotencyKey = useRef(Crypto.randomUUID());
 
   const { data: cart } = useQuery({ queryKey: ['cart'], queryFn: cartApi.get });
   const { data: addresses } = useQuery({ queryKey: ['addresses'], queryFn: addressesApi.getAll });
@@ -41,6 +43,11 @@ export default function CheckoutScreen() {
   const deliveryFee = deliveryQuote?.deliveryFee ?? 0;
   const taxAmount = subtotal * DEFAULT_TAX_RATE;
   const total = subtotal + deliveryFee + taxAmount;
+  const checkoutSignature = JSON.stringify({ selectedAddress, couponCode, note, items: items.map((item: { productId: string; quantity: number; selectedPriceType: string }) => [item.productId, item.quantity, item.selectedPriceType]) });
+
+  useEffect(() => {
+    idempotencyKey.current = Crypto.randomUUID();
+  }, [checkoutSignature]);
 
   const handlePlaceOrder = async () => {
     if (!selectedAddress) {
@@ -59,7 +66,7 @@ export default function CheckoutScreen() {
           quantity: item.quantity,
           selectedPriceType: item.selectedPriceType,
         })),
-      });
+      }, idempotencyKey.current);
       await queryClient.invalidateQueries({ queryKey: ['cart'] });
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
       router.replace({
