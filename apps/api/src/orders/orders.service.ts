@@ -341,19 +341,28 @@ export class OrdersService {
     return this.formatOrder(order as unknown as Record<string, unknown>);
   }
 
-  async getMyOrders(userId: string) {
-    const orders = await this.prisma.order.findMany({
-      where: { userId },
-      include: {
-        items: true,
-        address: true,
-        deliveryAgent: { select: { id: true, fullName: true, phone: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    return orders.map((o) =>
-      this.formatOrder(o as unknown as Record<string, unknown>),
-    );
+  async getMyOrders(userId: string, page = 1, limit = 20) {
+    const [orders, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: { userId },
+        include: {
+          items: true,
+          address: true,
+          deliveryAgent: { select: { id: true, fullName: true, phone: true } },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.order.count({ where: { userId } }),
+    ]);
+    return {
+      data: orders.map((o) => this.formatOrder(o as unknown as Record<string, unknown>)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async getOrder(userId: string, userRole: string, orderId: string) {

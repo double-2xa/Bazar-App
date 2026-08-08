@@ -32,6 +32,21 @@ services:
       postgres:
         condition: service_healthy
 
+  redis:
+    image: redis:7-alpine
+    container_name: doublea-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   api:
     build:
       context: .
@@ -41,6 +56,9 @@ services:
     environment:
       DATABASE_URL: postgresql://doublea:${POSTGRES_PASSWORD}@postgres:5432/doublea_commerce?schema=public&connection_limit=10&pool_timeout=10&connect_timeout=5&socket_timeout=10&application_name=doublea_api
       DIRECT_DATABASE_URL: postgresql://doublea:${POSTGRES_PASSWORD}@postgres:5432/doublea_commerce?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-bazar:v1}
+      DASHBOARD_CACHE_TTL_SECONDS: ${DASHBOARD_CACHE_TTL_SECONDS:-15}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
       JWT_ACCESS_EXPIRES: 15m
@@ -59,6 +77,8 @@ services:
       - uploads_data:/app/apps/api/uploads
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3001/api/health/ready >/dev/null || exit 1"]

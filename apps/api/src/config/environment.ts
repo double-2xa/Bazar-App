@@ -20,6 +20,9 @@ export function validateEnvironment(config: Record<string, unknown>) {
   if (!/^postgres(ql)?:\/\//.test(databaseUrl)) throw new Error('DATABASE_URL must be a PostgreSQL URL');
 
   if (production) {
+    const redisUrl = required(config, 'REDIS_URL');
+    if (!/^rediss?:\/\//.test(redisUrl)) throw new Error('REDIS_URL must be a Redis URL');
+    if (!new URL(redisUrl).password) throw new Error('REDIS_URL must include authentication in production');
     const directDatabaseUrl = required(config, 'DIRECT_DATABASE_URL');
     if (!/^postgres(ql)?:\/\//.test(directDatabaseUrl)) throw new Error('DIRECT_DATABASE_URL must be a PostgreSQL URL');
     for (const option of ['connection_limit', 'pool_timeout', 'connect_timeout', 'socket_timeout']) {

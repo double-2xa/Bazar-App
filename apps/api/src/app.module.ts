@@ -21,6 +21,9 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { validateEnvironment } from './config/environment';
 import { HealthModule } from './health/health.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { RedisModule } from './redis/redis.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 
 @Module({
   imports: [
@@ -37,6 +40,8 @@ import { HealthModule } from './health/health.module';
       throttlers: [{ name: 'default', ttl: 60000, limit: 120 }],
       errorMessage: 'Too many requests. Please wait and try again.',
     }),
+    ScheduleModule.forRoot(),
+    RedisModule,
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -53,6 +58,7 @@ import { HealthModule } from './health/health.module';
     BannersModule,
     WishlistModule,
     HealthModule,
+    MaintenanceModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

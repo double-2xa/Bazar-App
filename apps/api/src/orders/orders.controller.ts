@@ -6,6 +6,7 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination.dto';
 
 @Controller('orders')
 export class OrdersController {
@@ -26,8 +27,8 @@ export class OrdersController {
   }
 
   @Get('my-orders')
-  getMyOrders(@CurrentUser('sub') userId: string) {
-    return this.ordersService.getMyOrders(userId);
+  getMyOrders(@CurrentUser('sub') userId: string, @Query() query: PaginationQueryDto) {
+    return this.ordersService.getMyOrders(userId, query.page, query.limit);
   }
 
   @Get('delivery-quote')

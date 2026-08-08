@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertCompanyCanShop, decimalToNumber } from '../common/utils';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
@@ -16,8 +17,10 @@ export class CartService {
   }
 
   private async getOrCreateCart(userId: string) {
-    let cart = await this.prisma.cart.findUnique({
+    const cart = await this.prisma.cart.upsert({
       where: { userId },
+      create: { userId },
+      update: {},
       include: {
         items: {
           include: {
@@ -26,19 +29,23 @@ export class CartService {
         },
       },
     });
-    if (!cart) {
-      cart = await this.prisma.cart.create({
-        data: { userId },
-        include: {
-          items: {
-            include: {
-              product: { include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } } },
-            },
-          },
-        },
-      });
-    }
     return this.formatCart(cart);
+  }
+
+  private async serializable<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        return await this.prisma.$transaction(operation, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          maxWait: 5000,
+          timeout: 10000,
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034' && attempt < 3) continue;
+        throw error;
+      }
+    }
+    throw new ConflictException('Cart changed concurrently. Please retry.');
   }
 
   private formatCart(cart: Record<string, unknown>) {
@@ -66,81 +73,55 @@ export class CartService {
 
   async addItem(userId: string, dto: AddCartItemDto) {
     await this.assertUserCanUseCart(userId);
-    const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
-    if (!product || !product.isActive) throw new NotFoundException('Product not found');
-    if (product.stockQuantity < dto.quantity) {
-      throw new BadRequestException('Insufficient stock');
-    }
-
     const priceType = dto.selectedPriceType || 'normal';
-    if (priceType === 'company') {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: { companyProfile: true },
-      });
-      if (user?.role !== 'company' || user.companyProfile?.status !== 'approved') {
+    await this.serializable(async (tx) => {
+      const [user, product] = await Promise.all([
+        tx.user.findUnique({ where: { id: userId }, include: { companyProfile: true } }),
+        tx.product.findUnique({ where: { id: dto.productId } }),
+      ]);
+      if (!product || !product.isActive) throw new NotFoundException('Product not found');
+      if (priceType === 'company' && (user?.role !== 'company' || user.companyProfile?.status !== 'approved')) {
         throw new BadRequestException('Company pricing not available');
       }
-    }
-
-    const cart = await this.getOrCreateCart(userId);
-    const existing = await this.prisma.cartItem.findFirst({
-      where: {
-        cartId: cart.id,
-        productId: dto.productId,
-        selectedPriceType: priceType,
-      },
+      const cart = await tx.cart.upsert({ where: { userId }, create: { userId }, update: {} });
+      const existing = await tx.cartItem.findUnique({
+        where: { cartId_productId_selectedPriceType: { cartId: cart.id, productId: dto.productId, selectedPriceType: priceType } },
+      });
+      const quantity = (existing?.quantity || 0) + dto.quantity;
+      if (quantity > product.stockQuantity) throw new BadRequestException('Insufficient stock');
+      await tx.cartItem.upsert({
+        where: { cartId_productId_selectedPriceType: { cartId: cart.id, productId: dto.productId, selectedPriceType: priceType } },
+        create: { cartId: cart.id, productId: dto.productId, quantity, selectedPriceType: priceType },
+        update: { quantity },
+      });
     });
-
-    if (existing) {
-      await this.prisma.cartItem.update({
-        where: { id: existing.id },
-        data: { quantity: existing.quantity + dto.quantity },
-      });
-    } else {
-      await this.prisma.cartItem.create({
-        data: {
-          cartId: cart.id,
-          productId: dto.productId,
-          quantity: dto.quantity,
-          selectedPriceType: priceType,
-        },
-      });
-    }
 
     return this.getOrCreateCart(userId);
   }
 
   async updateItem(userId: string, itemId: string, dto: UpdateCartItemDto) {
     await this.assertUserCanUseCart(userId);
-    const cart = await this.getOrCreateCart(userId);
-    const item = await this.prisma.cartItem.findFirst({
-      where: { id: itemId, cartId: cart.id },
-      include: { product: true },
+    await this.serializable(async (tx) => {
+      const item = await tx.cartItem.findFirst({
+        where: { id: itemId, cart: { userId } }, include: { product: true },
+      });
+      if (!item) throw new NotFoundException('Cart item not found');
+      if (item.product.stockQuantity < dto.quantity) throw new BadRequestException('Insufficient stock');
+      await tx.cartItem.update({ where: { id: itemId }, data: { quantity: dto.quantity } });
     });
-    if (!item) throw new NotFoundException('Cart item not found');
-    if (item.product.stockQuantity < dto.quantity) {
-      throw new BadRequestException('Insufficient stock');
-    }
-    await this.prisma.cartItem.update({ where: { id: itemId }, data: { quantity: dto.quantity } });
     return this.getOrCreateCart(userId);
   }
 
   async removeItem(userId: string, itemId: string) {
     await this.assertUserCanUseCart(userId);
-    const cart = await this.getOrCreateCart(userId);
-    const item = await this.prisma.cartItem.findFirst({
-      where: { id: itemId, cartId: cart.id },
-    });
-    if (!item) throw new NotFoundException('Cart item not found');
-    await this.prisma.cartItem.delete({ where: { id: itemId } });
+    const removed = await this.prisma.cartItem.deleteMany({ where: { id: itemId, cart: { userId } } });
+    if (removed.count === 0) throw new NotFoundException('Cart item not found');
     return this.getOrCreateCart(userId);
   }
 
   async clearCart(userId: string) {
     await this.assertUserCanUseCart(userId);
-    const cart = await this.getOrCreateCart(userId);
-    await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+    await this.prisma.cartItem.deleteMany({ where: { cart: { userId } } });
     return this.getOrCreateCart(userId);
   }
 }

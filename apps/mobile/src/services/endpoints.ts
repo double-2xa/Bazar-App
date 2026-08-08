@@ -89,7 +89,7 @@ export const locationsApi = {
 export const ordersApi = {
   create: (data: Record<string, unknown>, idempotencyKey: string) =>
     api.post<Order>('/orders', data, { headers: { 'Idempotency-Key': idempotencyKey } }).then((r) => r.data),
-  getMyOrders: () => api.get<Order[]>('/orders/my-orders').then((r) => r.data),
+  getMyOrders: (page = 1, limit = 20) => api.get<{ data: Order[]; total: number; page: number; limit: number; totalPages: number }>('/orders/my-orders', { params: { page, limit } }).then((r) => r.data),
   getById: (id: string) => api.get<Order>(`/orders/${id}`).then((r) => r.data),
   cancel: (id: string) => api.patch(`/orders/${id}/cancel`).then((r) => r.data),
   getDeliveryQuote: (addressId: string) =>
@@ -112,6 +112,9 @@ export const wishlistApi = {
 export const deliveryApi = {
   getOrders: () =>
     api.get<DeliveryOrdersGrouped>('/delivery/orders').then((r) => r.data),
+
+  getCompletedOrders: (page = 1, limit = 20) =>
+    api.get<{ data: Order[]; total: number; page: number; limit: number; totalPages: number }>('/delivery/orders/completed/history', { params: { page, limit } }).then((r) => r.data),
 
   getAvailableOrders: () =>
     api.get<Order[]>('/delivery/orders/available').then((r) => r.data),

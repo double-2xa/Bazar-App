@@ -2,19 +2,26 @@ import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import type { Order } from '@doublea/shared';
 import { OrderCard, ScreenContainer, EmptyState } from '@/components';
-import { useDeliveryOrders } from '@/hooks/useDeliveryOrders';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { deliveryApi } from '@/services/endpoints';
 import { colors, spacing, typography } from '@/theme';
 
 export default function DeliveryCompletedScreen() {
-  const { data, isLoading, isRefetching, refetch } = useDeliveryOrders();
-  const orders = (data?.delivered ?? []) as Order[];
+  const { data, isLoading, isRefetching, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ['delivery-orders-completed'],
+    queryFn: ({ pageParam }) => deliveryApi.getCompletedOrders(pageParam, 20),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+  });
+  const orders = data?.pages.flatMap((page) => page.data) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
 
   return (
     <ScreenContainer scroll={false}>
       <View style={styles.header}>
         <Text style={styles.title}>Completed deliveries</Text>
         <Text style={styles.subtitle}>
-          {orders.length === 0 ? 'No completed deliveries yet' : `${orders.length} delivered orders`}
+          {total === 0 ? 'No completed deliveries yet' : `${total} delivered orders`}
         </Text>
       </View>
       <FlatList
@@ -29,6 +36,8 @@ export default function DeliveryCompletedScreen() {
             colors={[colors.primary]}
           />
         }
+        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+        onEndReachedThreshold={0.4}
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState

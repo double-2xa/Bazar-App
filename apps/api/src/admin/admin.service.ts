@@ -11,6 +11,7 @@ import { AuthService } from "../auth/auth.service";
 import { AddressesService } from "../addresses/addresses.service";
 import { LocationsService } from "../locations/locations.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { RedisService } from "../redis/redis.service";
 import { sanitizeUser } from "../common/utils";
 import { CreateAdminUserDto, CreateDeliveryAgentDto, UpdateAdminUserDto, UpdateDeliveryAgentDto } from "./dto/admin.dto";
 import { decimalToNumber } from "../common/utils";
@@ -46,11 +47,16 @@ export class AdminService {
     private addressesService: AddressesService,
     private locationsService: LocationsService,
     private notifications: NotificationsService,
+    private redis: RedisService,
   ) {}
 
   async getDashboardStats() {
+    const ttl = Math.max(5, Math.min(60, Number(process.env.DASHBOARD_CACHE_TTL_SECONDS || 15)));
+    return this.redis.remember("cache:admin-dashboard", ttl, () => this.loadDashboardStats());
+  }
+
+  private async loadDashboardStats() {
     const startOfToday = getBeirutStartOfDay();
-    const start7d = getBeirutDaysAgoStart(6);
     const start30d = getBeirutDaysAgoStart(29);
 
     const unassignedWhere: Prisma.OrderWhereInput = {
@@ -80,10 +86,7 @@ export class AdminService {
       todayOrders,
       todayRevenueAgg,
       deliveredTodayCount,
-      pendingOrdersCount,
-      confirmedOrdersCount,
       unassignedOrdersCount,
-      inDeliveryOrdersCount,
       codUnpaidAgg,
       codUnpaidOrdersCount,
       pendingCompanyApprovalsCount,
@@ -91,13 +94,7 @@ export class AdminService {
       lowStockProductsCount,
       soldOutProductsCount,
       inStockProductsCount,
-      completedOrders,
       statusGroups,
-      ordersReadyForDriverCount,
-      assignedCount,
-      acceptedCount,
-      pickedUpCount,
-      onTheWayCount,
       mapOrdersRaw,
       activeOrdersForMapCount,
       recentOrdersRaw,
@@ -105,7 +102,6 @@ export class AdminService {
       busyAgentsRaw,
       lowStockProductsRaw,
       pendingCompaniesRaw,
-      ordersForTrend7,
       ordersForTrend30,
       ordersByCityRaw,
     ] = await Promise.all([
@@ -126,12 +122,7 @@ export class AdminService {
         _sum: { totalAmount: true },
       }),
       this.prisma.order.count({ where: deliveredTodayWhere }),
-      this.prisma.order.count({ where: { status: "pending" } }),
-      this.prisma.order.count({ where: { status: "confirmed" } }),
       this.prisma.order.count({ where: unassignedWhere }),
-      this.prisma.order.count({
-        where: { status: { in: [...IN_DELIVERY_STATUSES] } },
-      }),
       this.prisma.order.aggregate({
         where: {
           paymentMethod: "cash_on_delivery",
@@ -160,18 +151,10 @@ export class AdminService {
       this.prisma.product.count({
         where: { stockQuantity: { gt: 0 } },
       }),
-      this.prisma.order.count({ where: { status: "delivered" } }),
       this.prisma.order.groupBy({
         by: ["status"],
         _count: { _all: true },
       }),
-      this.prisma.order.count({
-        where: { status: "confirmed", deliveryAgentId: null },
-      }),
-      this.prisma.order.count({ where: { status: "assigned" } }),
-      this.prisma.order.count({ where: { status: "accepted" } }),
-      this.prisma.order.count({ where: { status: "picked_up" } }),
-      this.prisma.order.count({ where: { status: "on_the_way" } }),
       this.prisma.order.findMany({
         where: activeMapWhere,
         orderBy: { createdAt: "desc" },
@@ -277,18 +260,6 @@ export class AdminService {
         },
       }),
       this.prisma.order.findMany({
-        where: { createdAt: { gte: start7d } },
-        select: {
-          createdAt: true,
-          totalAmount: true,
-          status: true,
-          paymentMethod: true,
-          paymentStatus: true,
-          deliveryProof: { select: { deliveredAt: true } },
-          updatedAt: true,
-        },
-      }),
-      this.prisma.order.findMany({
         where: { createdAt: { gte: start30d } },
         select: {
           createdAt: true,
@@ -313,6 +284,15 @@ export class AdminService {
         orderStatusBreakdown[key] = row._count._all;
       }
     }
+    const pendingOrdersCount = orderStatusBreakdown.pending;
+    const confirmedOrdersCount = orderStatusBreakdown.confirmed;
+    const assignedCount = orderStatusBreakdown.assigned;
+    const acceptedCount = orderStatusBreakdown.accepted;
+    const pickedUpCount = orderStatusBreakdown.picked_up;
+    const onTheWayCount = orderStatusBreakdown.on_the_way;
+    const completedOrders = orderStatusBreakdown.delivered;
+    const inDeliveryOrdersCount = assignedCount + acceptedCount + pickedUpCount + onTheWayCount;
+    const ordersReadyForDriverCount = unassignedOrdersCount;
 
     const codUnpaidAmount = decimalToNumber(codUnpaidAgg._sum.totalAmount || 0);
     const totalRevenue = decimalToNumber(totalRevenueAgg._sum.totalAmount || 0);
@@ -351,7 +331,7 @@ export class AdminService {
       deliveredToday: deliveredTodayCount,
     };
 
-    const buildTrend = (orders: typeof ordersForTrend7, days: number) => {
+    const buildTrend = (orders: typeof ordersForTrend30, days: number) => {
       const buckets = new Map<
         string,
         {
@@ -519,7 +499,7 @@ export class AdminService {
     return {
       summary,
       salesTrend: {
-        days7: buildTrend(ordersForTrend7, 7),
+        days7: buildTrend(ordersForTrend30, 7),
         days30: buildTrend(ordersForTrend30, 30),
       },
       orderStatusBreakdown,

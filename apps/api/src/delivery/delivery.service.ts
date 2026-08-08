@@ -30,7 +30,7 @@ export class DeliveryService {
   ) {}
 
   async getAssignedOrders(agentId: string, status?: string) {
-    const where: Record<string, unknown> = { deliveryAgentId: agentId };
+    const where: Record<string, unknown> = { deliveryAgentId: agentId, status: { not: 'delivered' } };
     if (status) where.status = status;
 
     const orders = await this.prisma.order.findMany({
@@ -68,6 +68,34 @@ export class DeliveryService {
     }
 
     return grouped;
+  }
+
+  async getCompletedOrders(agentId: string, page = 1, limit = 20) {
+    const where = { deliveryAgentId: agentId, status: 'delivered' as const };
+    const [orders, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        include: {
+          items: true,
+          address: true,
+          user: { select: { id: true, fullName: true, email: true, phone: true } },
+        },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+    return {
+      data: orders.map((order) => ({
+        ...order,
+        address: order.address ? this.addressesService.toPublic(order.address as never) : null,
+        subtotal: decimalToNumber(order.subtotal),
+        totalAmount: decimalToNumber(order.totalAmount),
+        itemCount: order.items.length,
+      })),
+      total, page, limit, totalPages: Math.ceil(total / limit),
+    };
   }
 
   /** Unassigned orders drivers can lock (claim). */

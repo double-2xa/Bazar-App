@@ -3,6 +3,7 @@ import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 @Controller('health')
 @Public()
@@ -11,6 +12,7 @@ export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
   ) {}
 
   @Get('live')
@@ -28,6 +30,13 @@ export class HealthController {
           new Promise((_, reject) => setTimeout(() => reject(new Error('Database readiness timeout')), 2000)),
         ]);
         return { database: { status: 'up' as const } };
+      },
+      async () => {
+        await Promise.race([
+          this.redis.ping(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Redis readiness timeout')), 1000)),
+        ]);
+        return { redis: { status: 'up' as const } };
       },
     ]);
   }
