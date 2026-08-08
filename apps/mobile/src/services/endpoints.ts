@@ -109,6 +109,16 @@ export const wishlistApi = {
   remove: (productId: string) => api.delete(`/wishlist/${productId}`).then((r) => r.data),
 };
 
+export const notificationsApi = {
+  registerPushToken: (token: string, platform: 'android' | 'ios') =>
+    api.post('/notifications/push-token', { token, platform }).then((r) => r.data),
+  unregisterPushToken: (token: string) =>
+    api.delete('/notifications/push-token', { data: { token } }).then((r) => r.data),
+  getAll: (unreadOnly = false) =>
+    api.get<AppNotification[]>('/notifications', { params: { unreadOnly } }).then((r) => r.data),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`).then((r) => r.data),
+};
+
 export const deliveryApi = {
   getOrders: () =>
     api.get<DeliveryOrdersGrouped>('/delivery/orders').then((r) => r.data),

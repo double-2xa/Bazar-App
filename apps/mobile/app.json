@@ -29,11 +29,17 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
       "autolinkingModuleResolution": true
+    },
+    "notification": {
+      "color": "#C8102E",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Nice Price Bazar"
     }
   }
 }

@@ -24,6 +24,7 @@ import { HealthModule } from './health/health.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RedisModule } from './redis/redis.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
     WishlistModule,
     HealthModule,
     MaintenanceModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

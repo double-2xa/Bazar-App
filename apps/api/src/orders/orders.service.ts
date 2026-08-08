@@ -431,6 +431,8 @@ export class OrdersService {
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
+    await this.notifications.notifyOrderStatus(orderId, 'cancelled', { previousAgentId: order.deliveryAgentId });
+
     return this.formatOrder(updated as unknown as Record<string, unknown>);
   }
 
@@ -459,6 +461,8 @@ export class OrdersService {
         },
       },
     });
+
+    await this.notifications.notifyOrderStatus(orderId, status as never);
 
     return this.fetchOrderDetail(orderId);
   }
@@ -502,6 +506,8 @@ export class OrdersService {
         },
       });
     });
+
+    await this.notifications.notifyOrderStatus(orderId, 'assigned', { assignedAgentId: deliveryAgentId });
 
     return this.fetchOrderDetail(orderId);
   }

@@ -307,6 +307,8 @@ export class DeliveryService {
       });
     });
 
+    await this.notifications.notifyOrderStatus(orderId, 'delivered');
+
     return this.getOrder(agentId, orderId);
   }
 }

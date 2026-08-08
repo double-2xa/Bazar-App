@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { WebAppFrame } from '@/components/WebAppFrame';
 import { useAuthStore } from '@/store/authStore';
 import { colors } from '@/theme';
+import { PushNotificationManager } from '@/components/PushNotificationManager';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
@@ -22,6 +23,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <WebAppFrame>
         <QueryClientProvider client={queryClient}>
+          <PushNotificationManager />
           <StatusBar style="dark" />
           <Stack
             screenOptions={{
