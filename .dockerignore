@@ -6,7 +6,11 @@
 node_modules
 **/node_modules
 **/.next
+**/.expo
+**/.expo-*
 **/dist
+**/dist-*
+**/*.tsbuildinfo
 uploads
 **/uploads
 npm-debug.log*
