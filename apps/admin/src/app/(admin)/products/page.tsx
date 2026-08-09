@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '@/services/api';
 import type { Category, PaginatedResponse, Product } from '@doublea/shared';
 import { getApiErrorMessage } from '@/utils/orderDelivery';
+import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 
 type ProductForm = {
   name: string;
@@ -40,6 +41,8 @@ export default function ProductsPage() {
   const [imagePreview, setImagePreview] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -185,15 +188,19 @@ export default function ProductsPage() {
     }
   };
 
-  const handleDelete = async (product: Product) => {
-    if (!window.confirm(`Delete “${product.name}”? This cannot be undone.`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     setError('');
     try {
-      await api.delete(`/products/${product.id}`);
+      await api.delete(`/products/${deleteTarget.id}`);
+      setDeleteTarget(null);
       setMessage('Product deleted successfully.');
       loadProducts();
     } catch (err) {
       setError(getApiErrorMessage(err, 'Failed to delete product.'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -251,7 +258,7 @@ export default function ProductsPage() {
                   <td><span className={`badge ${product.isActive ? 'badge-success' : 'badge-danger'}`}>{product.isActive ? 'Active' : 'Inactive'}</span></td>
                   <td className="product-row__actions">
                     <button type="button" className="btn btn-outline" onClick={() => openEditDialog(product)}>Edit</button>
-                    <button type="button" className="product-delete-button" onClick={() => handleDelete(product)}>Delete</button>
+                    <button type="button" className="product-delete-button" onClick={() => { setError(''); setMessage(''); setDeleteTarget(product); }}>Delete</button>
                   </td>
                 </tr>
               ))}
@@ -303,6 +310,17 @@ export default function ProductsPage() {
           </div>
         </div>
       ) : null}
+
+      <DeleteConfirmationDialog
+        open={Boolean(deleteTarget)}
+        title="Delete product?"
+        subject={deleteTarget?.name ?? 'this product'}
+        busy={deleting}
+        error={deleteTarget ? error : null}
+        confirmLabel="Delete product"
+        onCancel={() => { if (!deleting) { setDeleteTarget(null); setError(''); } }}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

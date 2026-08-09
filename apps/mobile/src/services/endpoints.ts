@@ -91,6 +91,8 @@ export const ordersApi = {
     api.post<Order>('/orders', data, { headers: { 'Idempotency-Key': idempotencyKey } }).then((r) => r.data),
   getMyOrders: (page = 1, limit = 20) => api.get<{ data: Order[]; total: number; page: number; limit: number; totalPages: number }>('/orders/my-orders', { params: { page, limit } }).then((r) => r.data),
   getById: (id: string) => api.get<Order>(`/orders/${id}`).then((r) => r.data),
+  downloadInvoice: (id: string) =>
+    api.get<Blob>(`/orders/${id}/invoice`, { responseType: 'blob' }).then((r) => r.data),
   cancel: (id: string) => api.patch(`/orders/${id}/cancel`).then((r) => r.data),
   getDeliveryQuote: (addressId: string) =>
     api

@@ -35,6 +35,7 @@ export default function OrderDetailPage() {
   const [assigning, setAssigning] = useState(false);
   const [unassigning, setUnassigning] = useState(false);
   const [markingPacked, setMarkingPacked] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   const loadOrder = useCallback(() => {
     if (!params.id) return;
@@ -140,6 +141,27 @@ export default function OrderDetailPage() {
     }
   };
 
+  const downloadInvoice = async () => {
+    if (!order) return;
+    setDownloadingInvoice(true);
+    setError('');
+    try {
+      const invoice = await adminOrdersApi.downloadInvoice(order.id);
+      const url = URL.createObjectURL(invoice);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${order.orderNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to download invoice.'));
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
+
   if (loading) {
     return (
       <div>
@@ -210,9 +232,14 @@ export default function OrderDetailPage() {
             Placed {new Date(order.createdAt).toLocaleString()}
           </p>
         </div>
-        <span className={`badge ${delivery.badge}`} style={{ fontSize: 14, padding: '8px 14px' }}>
-          {delivery.label}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-outline" disabled={downloadingInvoice} onClick={downloadInvoice}>
+            {downloadingInvoice ? 'Preparing invoice…' : 'Download invoice'}
+          </button>
+          <span className={`badge ${delivery.badge}`} style={{ fontSize: 14, padding: '8px 14px' }}>
+            {delivery.label}
+          </span>
+        </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}

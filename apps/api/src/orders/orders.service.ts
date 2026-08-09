@@ -25,6 +25,7 @@ import {
 import { NotificationsService } from "../notifications/notifications.service";
 import { Prisma } from "@prisma/client";
 import { createHash } from "crypto";
+import { createInvoicePdf } from "./invoice-pdf";
 
 const ORDER_DETAIL_INCLUDE = {
   items: true,
@@ -387,6 +388,14 @@ export class OrdersService {
     return this.formatOrder(order as unknown as Record<string, unknown>, {
       includeCoordinates: true,
     });
+  }
+
+  async getInvoice(userId: string, userRole: string, orderId: string) {
+    const order = await this.getOrder(userId, userRole, orderId);
+    if (userRole === 'delivery_agent') {
+      throw new ForbiddenException('Invoices are only available to the customer and administrators');
+    }
+    return createInvoicePdf(order);
   }
 
   async cancelOrder(userId: string, orderId: string) {

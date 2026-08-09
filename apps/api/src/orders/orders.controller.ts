@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Body, Headers, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Headers, Param, Query, ParseUUIDPipe, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { isUUID } from 'class-validator';
 import { BadRequestException } from '@nestjs/common';
@@ -46,6 +47,24 @@ export class OrdersController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.ordersService.getOrder(userId, role, id);
+  }
+
+  @Get(':id/invoice')
+  async getInvoice(
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() response: Response,
+  ) {
+    const invoice = await this.ordersService.getInvoice(userId, role, id);
+    response.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="invoice-${id}.pdf"`,
+      'Content-Length': invoice.length,
+      'Cache-Control': 'private, no-store, max-age=0',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    response.end(invoice);
   }
 
   @Patch(':id/cancel')

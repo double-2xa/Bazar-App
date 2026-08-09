@@ -17,8 +17,8 @@ export class AdminController {
 
   @Get('dashboard')
   @Throttle({ default: { limit: 12, ttl: 60000 } })
-  getDashboard() {
-    return this.adminService.getDashboardStats();
+  getDashboard(@Query('refresh') refresh?: string) {
+    return this.adminService.getDashboardStats(refresh === 'true');
   }
 
   @Get('users')

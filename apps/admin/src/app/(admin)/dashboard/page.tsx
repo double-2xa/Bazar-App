@@ -19,16 +19,38 @@ import CodSummaryPanel, { OrdersByCityPanel } from '@/components/dashboard/CodSu
 import { formatCurrency } from '@/utils/format';
 import { getApiErrorMessage } from '@/utils/orderDelivery';
 
+function DashboardSectionHeading({
+  id,
+  eyebrow,
+  title,
+  description,
+}: {
+  id: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <header className="dash-page-section__header">
+      <span className="dash-page-section__eyebrow">{eyebrow}</span>
+      <h2 id={id}>{title}</h2>
+      <p>{description}</p>
+    </header>
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const load = useCallback(() => {
+  const load = useCallback((forceRefresh = false) => {
     setLoading(true);
     setError('');
     api
-      .get<DashboardData>('/admin/dashboard')
+      .get<DashboardData>('/admin/dashboard', {
+        params: forceRefresh ? { refresh: true } : undefined,
+      })
       .then((r) => setData(r.data))
       .catch((err) => {
         if (err?.response?.status !== 401) {
@@ -67,7 +89,7 @@ export default function DashboardPage() {
       {error ? <ErrorBanner message={error} onRetry={load} /> : null}
 
       <DashboardHero
-        onRefresh={load}
+        onRefresh={() => load(true)}
         refreshing={loading}
         kpis={[
           { label: 'Today’s orders', value: summary.todayOrders },
@@ -89,14 +111,24 @@ export default function DashboardPage() {
         ]}
       />
 
-      <section className="dash-widget-section" aria-label="Orders and delivery">
-        <div className="dash-section-header">
+      <section className="dash-page-section" aria-labelledby="dashboard-live-operations">
+        <DashboardSectionHeading
+          id="dashboard-live-operations"
+          eyebrow="Live monitoring"
+          title="Operations requiring attention"
+          description="Start here to see urgent work, delivery movement and outstanding cash collection."
+        />
+        <div className="dash-command-grid">
+          <AttentionPanel attention={attentionItems} summary={summary} />
+          <CodSummaryPanel summary={summary} cashOrderCount={attentionItems.cashToCollect} />
+        </div>
+        <div className="dash-subsection-heading">
           <div>
-            <div className="dash-section-header__title">Orders & delivery</div>
-            <div className="dash-section-header__subtitle">Fulfillment pipeline and driver status</div>
+            <h3>Orders & delivery</h3>
+            <p>Every card opens the relevant operational view.</p>
           </div>
         </div>
-        <div className="dash-widgets-row">
+        <div className="dash-widgets-row dash-widgets-row--operations">
           <DashboardWidget
             title={ADMIN_OPS_LABELS.needsDriver}
             value={summary.unassignedOrdersCount}
@@ -139,102 +171,81 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="dash-widget-section" aria-label="Items">
-        <div className="dash-section-header">
-          <div>
-            <div className="dash-section-header__title">Items</div>
-            <div className="dash-section-header__subtitle">Catalog stock health</div>
+      <section className="dash-page-section" aria-labelledby="dashboard-network-title">
+        <DashboardSectionHeading
+          id="dashboard-network-title"
+          eyebrow="Network view"
+          title="Geography & performance"
+          description="Monitor where active orders are located and how order volume is moving over time."
+        />
+        <div className="dash-main-grid">
+          <div className="dash-main-grid__map">
+            <LebanonOrdersMapPanel
+              orders={data.mapOrders}
+              withoutCoordinates={data.mapOrdersWithoutCoordinates}
+            />
+          </div>
+          <div className="dash-main-grid__side">
+            <DashboardChartsPanel
+              days7={data.salesTrend.days7}
+              days30={data.salesTrend.days30}
+              breakdown={data.orderStatusBreakdown}
+            />
           </div>
         </div>
-        <div className="dash-widgets-row">
-          <DashboardWidget
-            title={ADMIN_OPS_LABELS.inStock}
-            value={summary.inStockProductsCount}
-            href="/products"
-            tone="success"
-            compact
-          />
-          <DashboardWidget
-            title={ADMIN_OPS_LABELS.soldOut}
-            value={summary.soldOutProductsCount}
-            href="/products"
-            tone={summary.soldOutProductsCount > 0 ? 'danger' : 'default'}
-            compact
-          />
-          <DashboardWidget
-            title={ADMIN_OPS_LABELS.lowStock}
-            value={summary.lowStockProductsCount}
-            href="/products"
-            tone={summary.lowStockProductsCount > 0 ? 'danger' : 'default'}
-            compact
-          />
-          <DashboardWidget
-            title="Total products"
-            value={summary.totalProducts}
-            href="/products"
-            compact
-          />
-        </div>
       </section>
 
-      <section className="dash-widget-section" aria-label="Users">
-        <div className="dash-section-header">
-          <div>
-            <div className="dash-section-header__title">Users</div>
-            <div className="dash-section-header__subtitle">Accounts and wholesale requests</div>
+      <section className="dash-page-section" aria-labelledby="dashboard-activity-title">
+        <DashboardSectionHeading
+          id="dashboard-activity-title"
+          eyebrow="Activity"
+          title="Current workload"
+          description="Recent customer activity alongside the fulfillment pipeline and driver capacity."
+        />
+        <div className="dash-activity-grid">
+          <RecentOrdersPanel orders={data.recentOrders} />
+          <div className="dash-activity-grid__side">
+            <DeliveryPipelinePanel pipeline={data.deliveryPipeline} />
+            <BusyDriversPanel drivers={data.busyDrivers} />
           </div>
         </div>
-        <div className="dash-widgets-row">
-          <DashboardWidget
-            title={ADMIN_OPS_LABELS.registeredUsers}
-            value={summary.totalUsers}
-            href="/users?status=active"
-            compact
-          />
-          <DashboardWidget
-            title={ADMIN_OPS_LABELS.registeredCompanies}
-            value={summary.totalCompanies}
-            href="/companies?status=active"
-            compact
-          />
-          <DashboardWidget
-            title={ADMIN_OPS_LABELS.waitingApproval}
-            value={summary.pendingCompanyApprovalsCount}
-            href="/companies?status=pending"
-            tone={summary.pendingCompanyApprovalsCount > 0 ? 'attention' : 'default'}
-            compact
-          />
-        </div>
       </section>
 
-      <section className="dash-main-grid" aria-label="Map and analytics">
-        <div className="dash-main-grid__map">
-          <LebanonOrdersMapPanel
-            orders={data.mapOrders}
-            withoutCoordinates={data.mapOrdersWithoutCoordinates}
-          />
+      <section className="dash-page-section" aria-labelledby="dashboard-business-title">
+        <DashboardSectionHeading
+          id="dashboard-business-title"
+          eyebrow="Business health"
+          title="Catalog & accounts"
+          description="Stock health, customer accounts and wholesale onboarding in one structured area."
+        />
+        <div className="dash-overview-groups">
+          <article className="dash-overview-group">
+            <div className="dash-subsection-heading">
+              <div><h3>Inventory</h3><p>Catalog stock health</p></div>
+            </div>
+            <div className="dash-widgets-row dash-widgets-row--inventory">
+              <DashboardWidget title={ADMIN_OPS_LABELS.inStock} value={summary.inStockProductsCount} href="/products" tone="success" compact />
+              <DashboardWidget title={ADMIN_OPS_LABELS.soldOut} value={summary.soldOutProductsCount} href="/products" tone={summary.soldOutProductsCount > 0 ? 'danger' : 'default'} compact />
+              <DashboardWidget title={ADMIN_OPS_LABELS.lowStock} value={summary.lowStockProductsCount} href="/products" tone={summary.lowStockProductsCount > 0 ? 'danger' : 'default'} compact />
+              <DashboardWidget title="Total products" value={summary.totalProducts} href="/products" compact />
+            </div>
+          </article>
+          <article className="dash-overview-group">
+            <div className="dash-subsection-heading">
+              <div><h3>Accounts</h3><p>Customers and wholesale requests</p></div>
+            </div>
+            <div className="dash-widgets-row dash-widgets-row--accounts">
+              <DashboardWidget title={ADMIN_OPS_LABELS.registeredUsers} value={summary.totalUsers} href="/users?status=active" compact />
+              <DashboardWidget title={ADMIN_OPS_LABELS.registeredCompanies} value={summary.totalCompanies} href="/companies?status=active" compact />
+              <DashboardWidget title={ADMIN_OPS_LABELS.waitingApproval} value={summary.pendingCompanyApprovalsCount} href="/companies?status=pending" tone={summary.pendingCompanyApprovalsCount > 0 ? 'attention' : 'default'} compact />
+            </div>
+          </article>
         </div>
-        <div className="dash-main-grid__side">
-          <DashboardChartsPanel
-            days7={data.salesTrend.days7}
-            days30={data.salesTrend.days30}
-            breakdown={data.orderStatusBreakdown}
-          />
-          <DeliveryPipelinePanel pipeline={data.deliveryPipeline} />
-        </div>
-      </section>
-
-      <section className="dash-panels-grid" aria-label="Operational panels">
-        <RecentOrdersPanel orders={data.recentOrders} />
-        <BusyDriversPanel drivers={data.busyDrivers} />
         <TopProductsPanel topProducts={data.topProducts} lowStockProducts={data.lowStockProducts} />
-        <PendingCompaniesPanel companies={data.pendingCompanies} onChanged={load} />
-      </section>
-
-      <section className="dash-deep-grid" aria-label="Deeper operations">
-        <AttentionPanel attention={attentionItems} summary={summary} />
-        <CodSummaryPanel summary={summary} cashOrderCount={attentionItems.cashToCollect} />
-        <OrdersByCityPanel cities={data.ordersByCity} />
+        <div className="dash-business-detail-grid">
+          <PendingCompaniesPanel companies={data.pendingCompanies} onChanged={() => load(true)} />
+          <OrdersByCityPanel cities={data.ordersByCity} />
+        </div>
       </section>
     </div>
   );

@@ -50,8 +50,9 @@ export class AdminService {
     private redis: RedisService,
   ) {}
 
-  async getDashboardStats() {
-    const ttl = Math.max(5, Math.min(60, Number(process.env.DASHBOARD_CACHE_TTL_SECONDS || 15)));
+  async getDashboardStats(forceRefresh = false) {
+    const ttl = Math.max(5, Math.min(300, Number(process.env.DASHBOARD_CACHE_TTL_SECONDS || 30)));
+    if (forceRefresh) await this.redis.delete("cache:admin-dashboard");
     return this.redis.remember("cache:admin-dashboard", ttl, () => this.loadDashboardStats());
   }
 
@@ -271,10 +272,19 @@ export class AdminService {
           updatedAt: true,
         },
       }),
-      this.prisma.order.findMany({
-        where: activeMapWhere,
-        select: { address: { select: { city: true } } },
-      }),
+      this.prisma.$queryRaw<Array<{ city: string; count: bigint }>>(Prisma.sql`
+        SELECT
+          COALESCE(NULLIF(BTRIM(a."city"), ''), 'Unknown') AS "city",
+          COUNT(*)::bigint AS "count"
+        FROM "Order" o
+        LEFT JOIN "Address" a ON a."id" = o."addressId"
+        WHERE o."status"::text IN (
+          'pending', 'confirmed', 'assigned', 'accepted', 'picked_up', 'on_the_way'
+        )
+        GROUP BY COALESCE(NULLIF(BTRIM(a."city"), ''), 'Unknown')
+        ORDER BY "count" DESC
+        LIMIT 8
+      `),
     ]);
 
     const orderStatusBreakdown = emptyStatusBreakdown();
@@ -412,15 +422,10 @@ export class AdminService {
       .sort((a, b) => b.activeOrderCount - a.activeOrderCount)
       .slice(0, 5);
 
-    const cityCounts = new Map<string, number>();
-    for (const o of ordersByCityRaw) {
-      const city = o.address?.city?.trim() || "Unknown";
-      cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
-    }
-    const ordersByCity = Array.from(cityCounts.entries())
-      .map(([city, count]) => ({ city, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
+    const ordersByCity = ordersByCityRaw.map((row) => ({
+      city: row.city,
+      count: Number(row.count),
+    }));
 
     const mapOrders = mapOrdersRaw
       .map((o) => {

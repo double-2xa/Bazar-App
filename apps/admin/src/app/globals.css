@@ -1325,6 +1325,92 @@ input, select, textarea {
   .dash-widgets-row { grid-template-columns: 1fr; }
 }
 
+/* Destructive actions use one consistent, deliberate two-step confirmation. */
+.delete-confirmation-overlay {
+  padding: 20px;
+  animation: delivery-agent-scrim-in 180ms ease-out both;
+}
+
+.delete-confirmation-dialog {
+  max-width: 460px;
+  text-align: center;
+  animation: delivery-agent-modal-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.delete-confirmation-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.11);
+  color: var(--danger);
+  font-size: 24px;
+  font-weight: 750;
+}
+
+.delete-confirmation-step {
+  margin-bottom: 5px;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.delete-confirmation-dialog h2 {
+  margin: 0;
+  font-size: 21px;
+  letter-spacing: -0.025em;
+}
+
+.delete-confirmation-copy,
+.delete-confirmation-warning,
+.delete-confirmation-error {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.delete-confirmation-copy { color: var(--muted); }
+.delete-confirmation-copy strong { color: var(--text); overflow-wrap: anywhere; }
+
+.delete-confirmation-warning,
+.delete-confirmation-error {
+  padding: 10px 12px;
+  border-radius: 11px;
+  text-align: left;
+}
+
+.delete-confirmation-warning {
+  background: rgba(245, 158, 11, 0.11);
+  color: #82520a;
+}
+
+.delete-confirmation-error {
+  background: rgba(220, 38, 38, 0.09);
+  color: var(--danger);
+}
+
+.delete-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+@media (max-width: 520px) {
+  .delete-confirmation-overlay { align-items: flex-end; padding: 10px; }
+  .delete-confirmation-dialog { width: 100%; border-radius: 22px; }
+  .delete-confirmation-actions .btn { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .delete-confirmation-overlay,
+  .delete-confirmation-dialog { animation: none; }
+}
+
 /* Apple-inspired admin refinement: quiet materials, direct feedback, clear depth. */
 :root {
   --background: #f3f3f5;
@@ -1495,6 +1581,247 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @media (prefers-reduced-transparency: reduce) {
   .card, .metric-card, .action-queue-card, .ops-list-card, .dash-widget, .dash-panel, .dash-chart-card { background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* Dashboard control-room structure: clear hierarchy, aligned modules, no orphaned gaps. */
+.dash-v3 {
+  gap: 36px;
+  padding-bottom: 12px;
+}
+
+.dash-page-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dash-page-section__header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(31, 31, 31, 0.08);
+}
+
+.dash-page-section__eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.dash-page-section__header h2 {
+  color: var(--charcoal);
+  font-size: clamp(20px, 2vw, 24px);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.dash-page-section__header p {
+  max-width: 720px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dash-subsection-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  min-height: 38px;
+}
+
+.dash-subsection-heading h3 {
+  color: var(--charcoal);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dash-subsection-heading p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dash-command-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.85fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.dash-command-grid > .dash-panel {
+  min-height: 154px;
+}
+
+.dash-widgets-row--operations {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dash-widgets-row--operations .dash-widget {
+  min-height: 82px;
+  justify-content: center;
+}
+
+.dash-main-grid {
+  grid-template-columns: minmax(0, 1.42fr) minmax(340px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dash-main-grid__map,
+.dash-main-grid__map > .dash-map-panel {
+  min-height: 0;
+  height: 100%;
+}
+
+.dash-main-grid__map > .dash-map-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-main-grid__map .dash-map-panel__map {
+  flex: 1;
+  height: auto;
+  min-height: 520px;
+}
+
+.dash-main-grid__side {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dash-main-grid__side > .dash-chart-card {
+  min-height: 0;
+}
+
+.dash-activity-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dash-activity-grid > .dash-panel {
+  height: 100%;
+}
+
+.dash-activity-grid__side {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 16px;
+}
+
+.dash-activity-grid__side > * {
+  min-width: 0;
+}
+
+.dash-overview-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.dash-overview-group {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid rgba(31, 31, 31, 0.07);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.dash-overview-group .dash-subsection-heading {
+  margin-bottom: 12px;
+}
+
+.dash-widgets-row--inventory {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dash-widgets-row--accounts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dash-overview-group .dash-widget {
+  min-height: 82px;
+  justify-content: center;
+}
+
+.dash-page-section > .dash-panel--split {
+  grid-column: auto;
+}
+
+.dash-business-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dash-business-detail-grid > .dash-panel {
+  height: 100%;
+}
+
+.dash-business-detail-grid > :only-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1180px) {
+  .dash-command-grid,
+  .dash-main-grid,
+  .dash-activity-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-main-grid__map .dash-map-panel__map {
+    min-height: 430px;
+  }
+
+  .dash-main-grid__side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .dash-activity-grid__side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .dash-overview-groups,
+  .dash-business-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-widgets-row--accounts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .dash-v3 { gap: 28px; }
+  .dash-page-section { gap: 13px; }
+  .dash-command-grid { grid-template-columns: 1fr; }
+  .dash-widgets-row--operations,
+  .dash-widgets-row--inventory,
+  .dash-widgets-row--accounts,
+  .dash-main-grid__side,
+  .dash-activity-grid__side {
+    grid-template-columns: 1fr;
+  }
+  .dash-overview-group { padding: 14px; }
+  .dash-main-grid__map .dash-map-panel__map { min-height: 340px; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .dash-overview-group { background: #fff; }
 }
 
 /* Product management: focused create/edit workflow. */

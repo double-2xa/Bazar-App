@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Category } from '@doublea/shared';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/orderDelivery';
+import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 
 type CategoryForm = {
   name: string;
@@ -28,6 +29,8 @@ export default function CategoriesPage() {
   const [dialog, setDialog] = useState<'create' | 'edit' | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -113,6 +116,23 @@ export default function CategoriesPage() {
     }
   };
 
+  const deleteCategory = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setError('');
+    setMessage('');
+    try {
+      await api.delete(`/categories/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      setMessage('Category deleted successfully.');
+      load();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to delete category.'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div>
       <div className="categories-header">
@@ -161,6 +181,9 @@ export default function CategoriesPage() {
                   <td className="category-row__action">
                     <button type="button" className="btn btn-outline" onClick={() => openEditDialog(category)}>
                       Edit
+                    </button>
+                    <button type="button" className="product-delete-button" onClick={() => { setError(''); setMessage(''); setDeleteTarget(category); }}>
+                      Delete
                     </button>
                   </td>
                 </tr>
@@ -216,6 +239,19 @@ export default function CategoriesPage() {
           </div>
         </div>
       ) : null}
+
+      <DeleteConfirmationDialog
+        open={Boolean(deleteTarget)}
+        title="Delete category?"
+        subject={deleteTarget?.name ?? 'this category'}
+        description="This permanently removes the category."
+        warning="A category that still contains products cannot be deleted. Move or delete those products first."
+        busy={deleting}
+        error={deleteTarget ? error : null}
+        confirmLabel="Delete category"
+        onCancel={() => { if (!deleting) { setDeleteTarget(null); setError(''); } }}
+        onConfirm={deleteCategory}
+      />
     </div>
   );
 }

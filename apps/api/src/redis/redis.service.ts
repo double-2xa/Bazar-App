@@ -74,9 +74,13 @@ export class RedisService implements OnModuleInit, OnApplicationShutdown {
       ownsLock = (await this.client.set(this.key(lockKey), token, { NX: true, PX: 5000 }).catch(() => null)) === 'OK';
     }
     if (!ownsLock && this.client.isReady) {
-      await new Promise((resolve) => setTimeout(resolve, 75));
-      const filled = await this.getJson<T>(key);
-      if (filled !== null) return filled;
+      const waitMs = Math.max(250, Math.min(4000, Number(process.env.REDIS_CACHE_LOCK_WAIT_MS || 2000)));
+      const deadline = Date.now() + waitMs;
+      while (this.client.isReady && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const filled = await this.getJson<T>(key);
+        if (filled !== null) return filled;
+      }
     }
 
     try {
