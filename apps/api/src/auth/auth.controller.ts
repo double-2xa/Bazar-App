@@ -4,6 +4,7 @@ import { LoginDto, RegisterDto, RegisterCompanyDto, RefreshTokenDto, GoogleAuthD
 import { Public } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
@@ -11,12 +12,14 @@ export class AuthController {
 
   @Public()
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 3600000 } })
   register(@Body() dto: RegisterDto) {
     return this.authUsersService.register(dto);
   }
 
   @Public()
   @Post('register-company')
+  @Throttle({ default: { limit: 5, ttl: 3600000 } })
   @HttpCode(200)
   registerCompany(@Body() dto: RegisterCompanyDto) {
     return this.authUsersService.registerCompany(dto);
@@ -24,18 +27,21 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000, blockDuration: 300000 } })
   login(@Body() dto: LoginDto) {
     return this.authUsersService.login(dto);
   }
 
   @Public()
   @Post('google')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   googleLogin(@Body() dto: GoogleAuthDto) {
     return this.authUsersService.googleLogin(dto);
   }
 
   @Public()
   @Post('refresh')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authUsersService.refresh(dto.refreshToken);
   }

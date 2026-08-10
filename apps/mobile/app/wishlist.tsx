@@ -4,9 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/theme';
 import { useWishlist } from '@/hooks/useWishlist';
 import { ProductCard, EmptyState, ProductCardSkeleton } from '@/components';
+import { useProductGridColumns } from '@/layout/webLayout';
 
 export default function WishlistScreen() {
   const { products, isLoading } = useWishlist();
+  const columns = useProductGridColumns();
 
   if (isLoading) {
     return (
@@ -23,9 +25,10 @@ export default function WishlistScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
+        key={`wishlist-grid-${columns}`}
         data={products}
         keyExtractor={(item) => item.id}
-        numColumns={2}
+        numColumns={columns}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         ListEmptyComponent={

@@ -1,6 +1,6 @@
 import { FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,12 +13,15 @@ import { OrderCard, EmptyState, AppButton } from '@/components';
 export default function OrdersScreen() {
   const { isAuthenticated } = useAuthStore();
 
-  const { data: orders, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['orders'],
-    queryFn: ordersApi.getMyOrders,
+    queryFn: ({ pageParam }) => ordersApi.getMyOrders(pageParam, 20),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     enabled: isAuthenticated,
     staleTime: 0,
   });
+  const orders = data?.pages.flatMap((page) => page.data) ?? [];
 
   useFocusEffect(
     useCallback(() => {
@@ -42,7 +45,7 @@ export default function OrdersScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
-        data={orders as Order[] | undefined}
+        data={orders}
         keyExtractor={(item: Order) => item.id}
         contentContainerStyle={[styles.list, !orders?.length && styles.listEmpty]}
         refreshControl={
@@ -53,6 +56,8 @@ export default function OrdersScreen() {
             colors={[colors.primary]}
           />
         }
+        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+        onEndReachedThreshold={0.4}
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState

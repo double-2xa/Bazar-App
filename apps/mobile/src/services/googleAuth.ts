@@ -27,9 +27,11 @@ function resolveClientId(): string {
 /** Opens Google OAuth and returns an ID token for POST /auth/google. */
 export async function getGoogleIdToken(): Promise<string> {
   const clientId = resolveClientId();
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: 'nicepricebazar',
-  });
+  // Google compares redirect URIs exactly. Expo's web helper strips the root
+  // trailing slash, so make the browser callback explicit and stable.
+  const redirectUri = Platform.OS === 'web' && typeof window !== 'undefined'
+    ? `${window.location.origin}/`
+    : AuthSession.makeRedirectUri({ scheme: 'nicepricebazar' });
 
   const request = new AuthSession.AuthRequest({
     clientId,

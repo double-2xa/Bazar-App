@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import api from '@/services/api';
+import AccountEditorDialog, { AccountRecord, AccountRole } from '@/components/accounts/AccountEditorDialog';
+import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 
 type UserTab = 'pending' | 'rejected' | 'active' | 'inactive';
 
@@ -12,13 +14,14 @@ type CompanyProfile = {
   contactPerson?: string;
   companyPhone?: string | null;
   vatNumber?: string;
+  businessAddress?: string;
 };
 
 type UserRow = {
   id: string;
   fullName: string;
   email: string;
-  role: string;
+  role: AccountRole;
   isActive: boolean;
   phone?: string | null;
   companyProfile?: CompanyProfile | null;
@@ -45,6 +48,7 @@ export default function UsersPage() {
   const [deleting, setDeleting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editorAccount, setEditorAccount] = useState<AccountRecord | null | undefined>(undefined);
 
   const loadCounts = useCallback(async () => {
     const entries = await Promise.all(
@@ -140,8 +144,11 @@ export default function UsersPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 16, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>Users</h1>
+      <div className="account-page-header">
+        <div><h1>Users</h1><p>Create accounts, assign roles, and manage access.</p></div>
+        <button type="button" className="btn btn-primary" onClick={() => setEditorAccount(null)}>＋ Create account</button>
+      </div>
+      <div className="account-tabs-row">
         <div className="dash-tabs">
           {TABS.map((t) => (
             <button
@@ -227,6 +234,13 @@ export default function UsersPage() {
                   <td>{statusBadge(u)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        className="btn btn-outline"
+                        style={{ padding: '4px 12px', fontSize: 12 }}
+                        onClick={() => setEditorAccount(u as AccountRecord)}
+                      >
+                        Edit
+                      </button>
                       {tab === 'pending' && u.companyProfile?.id ? (
                         <>
                           <button
@@ -281,75 +295,35 @@ export default function UsersPage() {
         </table>
       </div>
 
-      {deleteTarget ? (
-        <div className="modal-overlay" onClick={() => !deleting && setDeleteTarget(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ marginTop: 0, fontSize: 20 }}>Delete user?</h2>
-            <p style={{ color: 'var(--muted)', marginBottom: 8 }}>
-              This permanently removes{' '}
-              <strong style={{ color: 'var(--text)' }}>{deleteTarget.fullName}</strong> (
-              {deleteTarget.email}). This cannot be undone.
-            </p>
-            {error ? (
-              <p style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 16 }}>{error}</p>
-            ) : (
-              <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 16 }}>
-                Users with order history cannot be deleted — deactivate them instead.
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="btn btn-outline"
-                disabled={deleting}
-                onClick={() => setDeleteTarget(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                disabled={deleting}
-                onClick={confirmDelete}
-              >
-                {deleting ? 'Deleting…' : 'Delete user'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <DeleteConfirmationDialog
+        open={Boolean(deleteTarget)}
+        title="Delete user?"
+        subject={deleteTarget ? `${deleteTarget.fullName} (${deleteTarget.email})` : 'this user'}
+        warning="Users with order history cannot be deleted. Deactivate them instead."
+        busy={deleting}
+        error={deleteTarget ? error : null}
+        confirmLabel="Delete user"
+        onCancel={() => { if (!deleting) { setDeleteTarget(null); setError(null); } }}
+        onConfirm={confirmDelete}
+      />
 
-      {removeAllOpen ? (
-        <div className="modal-overlay" onClick={() => !deleting && setRemoveAllOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ marginTop: 0, fontSize: 20 }}>Remove all rejected users?</h2>
-            <p style={{ color: 'var(--muted)', marginBottom: 8 }}>
-              This permanently deletes all <strong style={{ color: 'var(--text)' }}>{counts.rejected}</strong>{' '}
-              rejected company account(s). This cannot be undone.
-            </p>
-            {error ? (
-              <p style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 16 }}>{error}</p>
-            ) : null}
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="btn btn-outline"
-                disabled={deleting}
-                onClick={() => setRemoveAllOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                disabled={deleting}
-                onClick={confirmRemoveAllRejected}
-              >
-                {deleting ? 'Removing…' : 'Remove all'}
-              </button>
-            </div>
-          </div>
-        </div>
+      <DeleteConfirmationDialog
+        open={removeAllOpen}
+        title="Remove all rejected users?"
+        subject={`${counts.rejected} rejected user account${counts.rejected === 1 ? '' : 's'}`}
+        busy={deleting}
+        error={removeAllOpen ? error : null}
+        confirmLabel="Remove all"
+        onCancel={() => { if (!deleting) { setRemoveAllOpen(false); setError(null); } }}
+        onConfirm={confirmRemoveAllRejected}
+      />
+
+      {editorAccount !== undefined ? (
+        <AccountEditorDialog
+          account={editorAccount}
+          onClose={() => setEditorAccount(undefined)}
+          onSaved={refresh}
+        />
       ) : null}
     </div>
   );

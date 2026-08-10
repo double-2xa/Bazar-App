@@ -6,6 +6,7 @@ import {
   Inject,
   forwardRef,
   HttpException,
+  ConflictException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { decimalToNumber, generateOrderNumber, assertCompanyCanShop } from "../common/utils";
@@ -26,6 +27,9 @@ import {
 } from "@doublea/shared";
 import { NotificationsService } from "../notifications/notifications.service";
 import { WhishService } from "../whish/whish.service";
+import { Prisma } from "@prisma/client";
+import { createHash } from "crypto";
+import { createInvoicePdf } from "./invoice-pdf";
 
 const ORDER_DETAIL_INCLUDE = {
   items: true,
@@ -46,9 +50,14 @@ export class OrdersService {
     private whishService: WhishService,
   ) {}
 
-  private formatOrder(order: Record<string, unknown>) {
+  private formatOrder(
+    order: Record<string, unknown>,
+    options?: { includeCoordinates?: boolean },
+  ) {
     const address = order.address
-      ? this.addressesService.toPublic(order.address as never)
+      ? this.addressesService.toPublic(order.address as never, {
+          includeCoordinates: options?.includeCoordinates === true,
+        })
       : undefined;
 
     return {
@@ -73,7 +82,9 @@ export class OrdersService {
       include: ORDER_DETAIL_INCLUDE,
     });
     if (!order) throw new NotFoundException("Order not found");
-    return this.formatOrder(order as unknown as Record<string, unknown>);
+    return this.formatOrder(order as unknown as Record<string, unknown>, {
+      includeCoordinates: true,
+    });
   }
 
   private resolveStoreOrigin() {
@@ -110,7 +121,48 @@ export class OrdersService {
     return this.quoteDeliveryForAddress(address);
   }
 
-  async create(userId: string, userRole: string, dto: CreateOrderDto) {
+  private checkoutHash(dto: CreateOrderDto): string {
+    const normalized = {
+      addressId: dto.addressId,
+      paymentMethod: dto.paymentMethod || "cash_on_delivery",
+      customerNote: dto.customerNote?.trim() || null,
+      couponCode: dto.couponCode?.trim().toUpperCase() || null,
+      items: [...dto.items]
+        .map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          selectedPriceType: item.selectedPriceType || "normal",
+        }))
+        .sort((a, b) => `${a.productId}:${a.selectedPriceType}`.localeCompare(`${b.productId}:${b.selectedPriceType}`)),
+    };
+    return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+  }
+
+  private async findIdempotentOrder(userId: string, idempotencyKey: string) {
+    return this.prisma.order.findFirst({
+      where: { userId, idempotencyKey },
+      include: {
+        items: true,
+        address: true,
+        user: { select: { id: true, fullName: true, email: true, phone: true } },
+      },
+    });
+  }
+
+  async create(userId: string, userRole: string, dto: CreateOrderDto, idempotencyKey: string) {
+    const idempotencyHash = this.checkoutHash(dto);
+    const existingOrder = await this.findIdempotentOrder(userId, idempotencyKey);
+    if (existingOrder) {
+      if (existingOrder.idempotencyHash !== idempotencyHash) {
+        throw new ConflictException("This idempotency key was already used for a different checkout");
+      }
+      return this.formatOrder(existingOrder as unknown as Record<string, unknown>);
+    }
+
+    const uniqueItems = new Set(dto.items.map((item) => `${item.productId}:${item.selectedPriceType || "normal"}`));
+    if (uniqueItems.size !== dto.items.length) {
+      throw new BadRequestException("Duplicate products must be combined into one order item");
+    }
     const address = await this.prisma.address.findFirst({
       where: { id: dto.addressId, userId, deletedAt: null },
     });
@@ -205,16 +257,28 @@ export class OrdersService {
       ? String(this.whishService.generateExternalId())
       : null;
 
-    const order = await this.prisma.$transaction(async (tx) => {
-      for (const item of orderItems) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stockQuantity: { decrement: item.quantity },
-            soldCount: { increment: item.quantity },
-          },
-        });
-      }
+    let order: Awaited<ReturnType<typeof this.findIdempotentOrder>> = null;
+    let createdNewOrder = false;
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        order = await this.prisma.$transaction(async (tx) => {
+          for (const item of orderItems) {
+            const stockUpdate = await tx.product.updateMany({
+              where: {
+                id: item.productId,
+                isActive: true,
+                stockQuantity: { gte: item.quantity },
+              },
+              data: {
+                stockQuantity: { decrement: item.quantity },
+                soldCount: { increment: item.quantity },
+              },
+            });
+            if (stockUpdate.count !== 1) {
+              throw new BadRequestException(`Insufficient stock for ${item.productName}`);
+            }
+          }
 
       const created = await tx.order.create({
         data: {
@@ -236,17 +300,35 @@ export class OrdersService {
               status: "pending",
               note: isWish ? "Order placed — awaiting Wish Money payment" : "Order placed",
               changedByUserId: userId,
+          const created = await tx.order.create({
+            data: {
+              orderNumber: generateOrderNumber(),
+              userId,
+              addressId: dto.addressId,
+              idempotencyKey,
+              idempotencyHash,
+              paymentMethod: dto.paymentMethod || "cash_on_delivery",
+              subtotal,
+              deliveryFee,
+              discountAmount,
+              taxAmount,
+              totalAmount,
+              customerNote: dto.customerNote,
+              items: { create: orderItems },
+              statusHistory: {
+                create: {
+                  status: "pending",
+                  note: "Order placed",
+                  changedByUserId: userId,
+                },
+              },
             },
-          },
-        },
-        include: {
-          items: true,
-          address: true,
-          user: {
-            select: { id: true, fullName: true, email: true, phone: true },
-          },
-        },
-      });
+            include: {
+              items: true,
+              address: true,
+              user: { select: { id: true, fullName: true, email: true, phone: true } },
+            },
+          });
 
       // Wish: keep cart until payment is confirmed so failed/cancelled pays don't lose the cart
       if (!isWish) {
@@ -257,9 +339,35 @@ export class OrdersService {
           },
         });
       }
+          await tx.cartItem.deleteMany({
+            where: {
+              cart: { userId },
+              productId: { in: orderItems.map((i) => i.productId) },
+            },
+          });
 
-      return created;
-    });
+          return created;
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        createdNewOrder = true;
+        break;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          const duplicate = await this.findIdempotentOrder(userId, idempotencyKey);
+          if (duplicate) {
+            if (duplicate.idempotencyHash !== idempotencyHash) {
+              throw new ConflictException("This idempotency key was already used for a different checkout");
+            }
+            order = duplicate;
+            break;
+          }
+          if (attempt < maxAttempts) continue;
+        }
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034" && attempt < maxAttempts) {
+          continue;
+        }
+        throw error;
+      }
+    }
 
     if (isWish && whishExternalId) {
       try {
@@ -292,9 +400,14 @@ export class OrdersService {
     }
 
     try {
+    if (!order) throw new ConflictException("Checkout could not be completed safely. Please retry.");
+
+    if (createdNewOrder) {
+      try {
       await this.notifications.notifyDeliveryAgentsNewOrder(order);
-    } catch {
+      } catch {
       /* order already created — notification failure must not fail checkout */
+      }
     }
 
     return this.formatOrder(order as unknown as Record<string, unknown>);
@@ -433,6 +546,28 @@ export class OrdersService {
     return orders.map((o) =>
       this.formatOrder(o as unknown as Record<string, unknown>),
     );
+  async getMyOrders(userId: string, page = 1, limit = 20) {
+    const [orders, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where: { userId },
+        include: {
+          items: true,
+          address: true,
+          deliveryAgent: { select: { id: true, fullName: true, phone: true } },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.order.count({ where: { userId } }),
+    ]);
+    return {
+      data: orders.map((o) => this.formatOrder(o as unknown as Record<string, unknown>)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async getOrder(userId: string, userRole: string, orderId: string) {
@@ -454,7 +589,17 @@ export class OrdersService {
       throw new ForbiddenException("Access denied");
     }
 
-    return this.formatOrder(order as unknown as Record<string, unknown>);
+    return this.formatOrder(order as unknown as Record<string, unknown>, {
+      includeCoordinates: true,
+    });
+  }
+
+  async getInvoice(userId: string, userRole: string, orderId: string) {
+    const order = await this.getOrder(userId, userRole, orderId);
+    if (userRole === 'delivery_agent') {
+      throw new ForbiddenException('Invoices are only available to the customer and administrators');
+    }
+    return createInvoicePdf(order);
   }
 
   async cancelOrder(userId: string, orderId: string) {
@@ -468,6 +613,14 @@ export class OrdersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, userId, status: "pending" },
+        data: { status: "cancelled" },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictException("Order status changed before cancellation completed");
+      }
+
       for (const item of order.items) {
         await tx.product.update({
           where: { id: item.productId },
@@ -477,21 +630,21 @@ export class OrdersService {
           },
         });
       }
-      return tx.order.update({
-        where: { id: orderId },
+      await tx.orderStatusHistory.create({
         data: {
+          orderId,
           status: "cancelled",
-          statusHistory: {
-            create: {
-              status: "cancelled",
-              note: "Cancelled by customer",
-              changedByUserId: userId,
-            },
-          },
+          note: "Cancelled by customer",
+          changedByUserId: userId,
         },
+      });
+      return tx.order.findUniqueOrThrow({
+        where: { id: orderId },
         include: { items: true, address: true },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    await this.notifications.notifyOrderStatus(orderId, 'cancelled', { previousAgentId: order.deliveryAgentId });
 
     return this.formatOrder(updated as unknown as Record<string, unknown>);
   }
@@ -521,6 +674,8 @@ export class OrdersService {
         },
       },
     });
+
+    await this.notifications.notifyOrderStatus(orderId, status as never);
 
     return this.fetchOrderDetail(orderId);
   }
@@ -598,6 +753,8 @@ export class OrdersService {
       });
     });
 
+    await this.notifications.notifyOrderStatus(orderId, 'assigned', { assignedAgentId: deliveryAgentId });
+
     return this.fetchOrderDetail(orderId);
   }
 
@@ -665,11 +822,19 @@ export class OrdersService {
     page?: number;
     limit?: number;
     status?: string;
+    scope?: "active" | "archive";
   }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
-    const where = query.status ? { status: query.status as never } : {};
+    const terminalStatuses = ["delivered", "cancelled"] as const;
+    const where: Prisma.OrderWhereInput = query.status
+      ? { status: query.status as never }
+      : query.scope === "archive"
+        ? { status: { in: [...terminalStatuses] } }
+        : query.scope === "active"
+          ? { status: { notIn: [...terminalStatuses] } }
+          : {};
 
     const [data, total] = await Promise.all([
       this.prisma.order.findMany({

@@ -75,6 +75,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    const { unregisterPushNotifications } = await import('../services/pushNotifications');
+    await unregisterPushNotifications();
     const refreshToken = await tokenStorage.getItemAsync('refreshToken');
     if (refreshToken) {
       try {

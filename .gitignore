@@ -5,6 +5,8 @@ build/
 .next/
 .env
 .env.local
+.env.production
+**/.env.production
 *.log
 .DS_Store
 coverage/
@@ -13,3 +15,5 @@ coverage/
 apps/mobile/.expo/
 apps/mobile/android/
 apps/mobile/ios/
+uploads/
+apps/api/uploads/

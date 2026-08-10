@@ -4,11 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { productsApi, categoriesApi } from '@/services/endpoints';
 import { ProductCard, ProductCardSkeleton, EmptyState, ScreenContainer } from '@/components';
 import { useAddToCart } from '@/hooks/useAddToCart';
+import { useProductGridColumns } from '@/layout/webLayout';
 import { colors, spacing, typography } from '@/theme';
 
 export default function CategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { addToCart } = useAddToCart();
+  const columns = useProductGridColumns();
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
@@ -36,8 +38,9 @@ export default function CategoryScreen() {
 
       {isLoading ? (
         <FlatList
-          data={[1, 2, 3, 4]}
-          numColumns={2}
+          key={`category-loading-${columns}`}
+          data={[1, 2, 3, 4, 5, 6, 7, 8].slice(0, columns * 2)}
+          numColumns={columns}
           keyExtractor={(item) => String(item)}
           columnWrapperStyle={styles.row}
           renderItem={() => <ProductCardSkeleton />}
@@ -46,9 +49,10 @@ export default function CategoryScreen() {
         <EmptyState icon="grid-outline" title="Category not found" subtitle="This category may have been removed" />
       ) : (
         <FlatList
+          key={`category-grid-${columns}`}
           data={data?.data}
           keyExtractor={(item) => item.id}
-          numColumns={2}
+          numColumns={columns}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.list}
           ListEmptyComponent={

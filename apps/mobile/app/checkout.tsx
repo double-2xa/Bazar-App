@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import * as Crypto from 'expo-crypto';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -40,6 +41,7 @@ export default function CheckoutScreen() {
   const [paymentMethod, setPaymentMethod] = useState<'cash_on_delivery' | 'wish_money'>('cash_on_delivery');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const idempotencyKey = useRef(Crypto.randomUUID());
 
   const { data: cart } = useQuery({ queryKey: ['cart'], queryFn: cartApi.get });
   const { data: addresses } = useQuery({ queryKey: ['addresses'], queryFn: addressesApi.getAll });
@@ -65,6 +67,11 @@ export default function CheckoutScreen() {
   const deliveryFee = deliveryQuote?.deliveryFee ?? 0;
   const taxAmount = subtotal * DEFAULT_TAX_RATE;
   const total = subtotal + deliveryFee + taxAmount;
+  const checkoutSignature = JSON.stringify({ selectedAddress, couponCode, note, items: items.map((item: { productId: string; quantity: number; selectedPriceType: string }) => [item.productId, item.quantity, item.selectedPriceType]) });
+
+  useEffect(() => {
+    idempotencyKey.current = Crypto.randomUUID();
+  }, [checkoutSignature]);
 
   const goToConfirmation = async (orderNumber: string, orderTotal: number) => {
     await queryClient.invalidateQueries({ queryKey: ['cart'] });
@@ -126,6 +133,16 @@ export default function CheckoutScreen() {
       }
 
       await goToConfirmation(order.orderNumber, order.totalAmount ?? 0);
+      }, idempotencyKey.current);
+      await queryClient.invalidateQueries({ queryKey: ['cart'] });
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+      router.replace({
+        pathname: '/order-confirmation',
+        params: {
+          orderNumber: order.orderNumber,
+          total: String(order.totalAmount ?? 0),
+        },
+      });
     } catch (err: unknown) {
       Alert.alert('Error', getErrorMessage(err, 'Failed to place order'));
     } finally {

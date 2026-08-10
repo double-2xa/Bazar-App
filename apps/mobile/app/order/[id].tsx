@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, StyleSheet, Alert, RefreshControl, Linking, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { OrderStatus } from '@doublea/shared';
@@ -51,6 +51,7 @@ function formatAddressLine(order: {
 export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const [invoiceDownloading, setInvoiceDownloading] = useState(false);
 
   const { data: order, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['order', id],
@@ -103,6 +104,26 @@ export default function OrderDetailsScreen() {
     Linking.openURL(`tel:${phone}`);
   };
 
+  const downloadInvoice = async () => {
+    if (!id || Platform.OS !== 'web') return;
+    setInvoiceDownloading(true);
+    try {
+      const invoice = await ordersApi.downloadInvoice(id);
+      const url = URL.createObjectURL(invoice);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${order?.orderNumber ?? id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      Alert.alert('Invoice unavailable', getErrorMessage(err));
+    } finally {
+      setInvoiceDownloading(false);
+    }
+  };
+
   if (isLoading || !order) {
     return (
       <View style={styles.loading}>
@@ -141,6 +162,17 @@ export default function OrderDetailsScreen() {
           })}
         </Text>
       </GlassCard>
+
+      {Platform.OS === 'web' ? (
+        <AppButton
+          title="Download invoice"
+          variant="outline"
+          onPress={downloadInvoice}
+          loading={invoiceDownloading}
+          style={styles.invoiceButton}
+          fullWidth
+        />
+      ) : null}
 
       <GlassCard style={styles.card}>
         <Text style={styles.cardTitle}>Delivery progress</Text>
@@ -400,6 +432,7 @@ const styles = StyleSheet.create({
   totalLabel: { ...typography.body, fontWeight: '600', color: colors.text },
   totalValue: { ...typography.h3, color: colors.primary },
   cancelButton: { marginTop: spacing.sm },
+  invoiceButton: { marginBottom: spacing.sm },
   sigBlock: { marginTop: spacing.md },
   sigLabel: { ...typography.caption, color: colors.mutedText, marginBottom: 4, fontWeight: '600' },
 });

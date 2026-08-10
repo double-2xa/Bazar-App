@@ -11,8 +11,9 @@ import { AuthService } from "../auth/auth.service";
 import { AddressesService } from "../addresses/addresses.service";
 import { LocationsService } from "../locations/locations.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { RedisService } from "../redis/redis.service";
 import { sanitizeUser } from "../common/utils";
-import { CreateDeliveryAgentDto } from "./dto/admin.dto";
+import { CreateAdminUserDto, CreateDeliveryAgentDto, UpdateAdminUserDto, UpdateDeliveryAgentDto } from "./dto/admin.dto";
 import { decimalToNumber } from "../common/utils";
 import {
   getBeirutStartOfDay,
@@ -46,11 +47,17 @@ export class AdminService {
     private addressesService: AddressesService,
     private locationsService: LocationsService,
     private notifications: NotificationsService,
+    private redis: RedisService,
   ) {}
 
-  async getDashboardStats() {
+  async getDashboardStats(forceRefresh = false) {
+    const ttl = Math.max(5, Math.min(300, Number(process.env.DASHBOARD_CACHE_TTL_SECONDS || 30)));
+    if (forceRefresh) await this.redis.delete("cache:admin-dashboard");
+    return this.redis.remember("cache:admin-dashboard", ttl, () => this.loadDashboardStats());
+  }
+
+  private async loadDashboardStats() {
     const startOfToday = getBeirutStartOfDay();
-    const start7d = getBeirutDaysAgoStart(6);
     const start30d = getBeirutDaysAgoStart(29);
 
     const unassignedWhere: Prisma.OrderWhereInput = {
@@ -80,10 +87,7 @@ export class AdminService {
       todayOrders,
       todayRevenueAgg,
       deliveredTodayCount,
-      pendingOrdersCount,
-      confirmedOrdersCount,
       unassignedOrdersCount,
-      inDeliveryOrdersCount,
       codUnpaidAgg,
       codUnpaidOrdersCount,
       pendingCompanyApprovalsCount,
@@ -91,13 +95,7 @@ export class AdminService {
       lowStockProductsCount,
       soldOutProductsCount,
       inStockProductsCount,
-      completedOrders,
       statusGroups,
-      ordersReadyForDriverCount,
-      assignedCount,
-      acceptedCount,
-      pickedUpCount,
-      onTheWayCount,
       mapOrdersRaw,
       activeOrdersForMapCount,
       recentOrdersRaw,
@@ -105,7 +103,6 @@ export class AdminService {
       busyAgentsRaw,
       lowStockProductsRaw,
       pendingCompaniesRaw,
-      ordersForTrend7,
       ordersForTrend30,
       ordersByCityRaw,
     ] = await Promise.all([
@@ -126,12 +123,7 @@ export class AdminService {
         _sum: { totalAmount: true },
       }),
       this.prisma.order.count({ where: deliveredTodayWhere }),
-      this.prisma.order.count({ where: { status: "pending" } }),
-      this.prisma.order.count({ where: { status: "confirmed" } }),
       this.prisma.order.count({ where: unassignedWhere }),
-      this.prisma.order.count({
-        where: { status: { in: [...IN_DELIVERY_STATUSES] } },
-      }),
       this.prisma.order.aggregate({
         where: {
           paymentMethod: "cash_on_delivery",
@@ -160,18 +152,10 @@ export class AdminService {
       this.prisma.product.count({
         where: { stockQuantity: { gt: 0 } },
       }),
-      this.prisma.order.count({ where: { status: "delivered" } }),
       this.prisma.order.groupBy({
         by: ["status"],
         _count: { _all: true },
       }),
-      this.prisma.order.count({
-        where: { status: "confirmed", deliveryAgentId: null },
-      }),
-      this.prisma.order.count({ where: { status: "assigned" } }),
-      this.prisma.order.count({ where: { status: "accepted" } }),
-      this.prisma.order.count({ where: { status: "picked_up" } }),
-      this.prisma.order.count({ where: { status: "on_the_way" } }),
       this.prisma.order.findMany({
         where: activeMapWhere,
         orderBy: { createdAt: "desc" },
@@ -277,18 +261,6 @@ export class AdminService {
         },
       }),
       this.prisma.order.findMany({
-        where: { createdAt: { gte: start7d } },
-        select: {
-          createdAt: true,
-          totalAmount: true,
-          status: true,
-          paymentMethod: true,
-          paymentStatus: true,
-          deliveryProof: { select: { deliveredAt: true } },
-          updatedAt: true,
-        },
-      }),
-      this.prisma.order.findMany({
         where: { createdAt: { gte: start30d } },
         select: {
           createdAt: true,
@@ -300,10 +272,19 @@ export class AdminService {
           updatedAt: true,
         },
       }),
-      this.prisma.order.findMany({
-        where: activeMapWhere,
-        select: { address: { select: { city: true } } },
-      }),
+      this.prisma.$queryRaw<Array<{ city: string; count: bigint }>>(Prisma.sql`
+        SELECT
+          COALESCE(NULLIF(BTRIM(a."city"), ''), 'Unknown') AS "city",
+          COUNT(*)::bigint AS "count"
+        FROM "Order" o
+        LEFT JOIN "Address" a ON a."id" = o."addressId"
+        WHERE o."status"::text IN (
+          'pending', 'confirmed', 'assigned', 'accepted', 'picked_up', 'on_the_way'
+        )
+        GROUP BY COALESCE(NULLIF(BTRIM(a."city"), ''), 'Unknown')
+        ORDER BY "count" DESC
+        LIMIT 8
+      `),
     ]);
 
     const orderStatusBreakdown = emptyStatusBreakdown();
@@ -313,6 +294,15 @@ export class AdminService {
         orderStatusBreakdown[key] = row._count._all;
       }
     }
+    const pendingOrdersCount = orderStatusBreakdown.pending;
+    const confirmedOrdersCount = orderStatusBreakdown.confirmed;
+    const assignedCount = orderStatusBreakdown.assigned;
+    const acceptedCount = orderStatusBreakdown.accepted;
+    const pickedUpCount = orderStatusBreakdown.picked_up;
+    const onTheWayCount = orderStatusBreakdown.on_the_way;
+    const completedOrders = orderStatusBreakdown.delivered;
+    const inDeliveryOrdersCount = assignedCount + acceptedCount + pickedUpCount + onTheWayCount;
+    const ordersReadyForDriverCount = unassignedOrdersCount;
 
     const codUnpaidAmount = decimalToNumber(codUnpaidAgg._sum.totalAmount || 0);
     const totalRevenue = decimalToNumber(totalRevenueAgg._sum.totalAmount || 0);
@@ -351,7 +341,7 @@ export class AdminService {
       deliveredToday: deliveredTodayCount,
     };
 
-    const buildTrend = (orders: typeof ordersForTrend7, days: number) => {
+    const buildTrend = (orders: typeof ordersForTrend30, days: number) => {
       const buckets = new Map<
         string,
         {
@@ -432,15 +422,10 @@ export class AdminService {
       .sort((a, b) => b.activeOrderCount - a.activeOrderCount)
       .slice(0, 5);
 
-    const cityCounts = new Map<string, number>();
-    for (const o of ordersByCityRaw) {
-      const city = o.address?.city?.trim() || "Unknown";
-      cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1);
-    }
-    const ordersByCity = Array.from(cityCounts.entries())
-      .map(([city, count]) => ({ city, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
+    const ordersByCity = ordersByCityRaw.map((row) => ({
+      city: row.city,
+      count: Number(row.count),
+    }));
 
     const mapOrders = mapOrdersRaw
       .map((o) => {
@@ -519,7 +504,7 @@ export class AdminService {
     return {
       summary,
       salesTrend: {
-        days7: buildTrend(ordersForTrend7, 7),
+        days7: buildTrend(ordersForTrend30, 7),
         days30: buildTrend(ordersForTrend30, 30),
       },
       orderStatusBreakdown,
@@ -840,6 +825,131 @@ export class AdminService {
       createdAt: agent.createdAt,
       activeOrderCount: agent._count.assignedOrders,
     }));
+  }
+
+  private companyData(dto: CreateAdminUserDto | UpdateAdminUserDto): {
+    companyName: string;
+    vatNumber: string;
+    businessAddress: string;
+    contactPerson: string;
+    companyPhone: string;
+  } {
+    const values = {
+      companyName: dto.companyName?.trim(),
+      vatNumber: dto.vatNumber?.trim(),
+      businessAddress: dto.businessAddress?.trim(),
+      contactPerson: dto.contactPerson?.trim(),
+      companyPhone: dto.companyPhone?.trim(),
+    };
+    if (Object.values(values).some((value) => !value)) {
+      throw new BadRequestException("All company details are required for a company account");
+    }
+    return {
+      companyName: values.companyName!,
+      vatNumber: values.vatNumber!,
+      businessAddress: values.businessAddress!,
+      contactPerson: values.contactPerson!,
+      companyPhone: values.companyPhone!,
+    };
+  }
+
+  async createUser(dto: CreateAdminUserDto) {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) throw new ConflictException("Email already exists");
+
+    const passwordHash = await this.authService.hashPassword(dto.password);
+    const company = dto.role === "company" ? this.companyData(dto) : null;
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        fullName: dto.fullName.trim(),
+        phone: dto.phone?.trim() || null,
+        role: dto.role,
+        isActive: true,
+        ...(company
+          ? { companyProfile: { create: { ...company, status: "approved" } } }
+          : {}),
+      },
+      include: { companyProfile: true },
+    });
+    return sanitizeUser(user);
+  }
+
+  async updateUser(id: string, dto: UpdateAdminUserDto, adminId: string) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      include: { companyProfile: true },
+    });
+    if (!existing) throw new NotFoundException("User not found");
+    if (id === adminId && dto.role !== "admin") {
+      throw new ForbiddenException("You cannot remove your own admin role");
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const emailOwner = await this.prisma.user.findUnique({ where: { email } });
+    if (emailOwner && emailOwner.id !== id) throw new ConflictException("Email already exists");
+
+    const passwordHash = dto.password
+      ? await this.authService.hashPassword(dto.password)
+      : undefined;
+    const company = dto.role === "company" ? this.companyData(dto) : null;
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      if (company) {
+        await tx.companyProfile.upsert({
+          where: { userId: id },
+          create: { userId: id, ...company, status: "approved" },
+          update: company,
+        });
+      } else if (existing.companyProfile) {
+        await tx.companyProfile.delete({ where: { userId: id } });
+      }
+
+      return tx.user.update({
+        where: { id },
+        data: {
+          email,
+          fullName: dto.fullName.trim(),
+          phone: dto.phone?.trim() || null,
+          role: dto.role,
+          isActive: dto.isActive,
+          ...(passwordHash ? { passwordHash, authProvider: "local" } : {}),
+        },
+        include: { companyProfile: true },
+      });
+    });
+    return sanitizeUser(user);
+  }
+
+  async updateDeliveryAgent(id: string, dto: UpdateDeliveryAgentDto) {
+    const agent = await this.prisma.user.findUnique({ where: { id } });
+    if (!agent || agent.role !== "delivery_agent") {
+      throw new NotFoundException("Delivery agent not found");
+    }
+
+    const emailOwner = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (emailOwner && emailOwner.id !== id) {
+      throw new ConflictException("Email already exists");
+    }
+
+    const passwordHash = dto.password
+      ? await this.authService.hashPassword(dto.password)
+      : undefined;
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        email: dto.email,
+        fullName: dto.fullName,
+        phone: dto.phone || null,
+        isActive: dto.isActive,
+        ...(passwordHash ? { passwordHash } : {}),
+      },
+    });
+
+    return sanitizeUser(updated);
   }
 
   async getAllReviews() {

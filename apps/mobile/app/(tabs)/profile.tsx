@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,22 +7,24 @@ import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { BRAND } from '@doublea/shared';
 import { useAuthStore } from '@/store/authStore';
 import { AppButton, EmptyState } from '@/components';
+import { confirmAction } from '@/utils/showAlert';
 
 export default function ProfileScreen() {
   const { user, isAuthenticated, logout } = useAuthStore();
+  const [signingOut, setSigningOut] = useState(false);
 
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(tabs)');
-        },
-      },
-    ]);
+  const handleLogout = async () => {
+    if (signingOut) return;
+    const confirmed = await confirmAction('Sign Out', 'Are you sure you want to sign out?');
+    if (!confirmed) return;
+
+    setSigningOut(true);
+    try {
+      await logout();
+      router.replace('/(tabs)');
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -95,7 +98,15 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <AppButton title="Sign Out" variant="outline" onPress={handleLogout} fullWidth style={{ marginTop: spacing.lg }} />
+        <AppButton
+          title="Sign Out"
+          variant="outline"
+          onPress={handleLogout}
+          loading={signingOut}
+          disabled={signingOut}
+          fullWidth
+          style={{ marginTop: spacing.lg }}
+        />
       </ScrollView>
     </SafeAreaView>
   );

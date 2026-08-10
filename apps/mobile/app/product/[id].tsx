@@ -6,7 +6,6 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -24,11 +23,11 @@ import {
   LoadingSkeleton,
 } from '@/components';
 import { cartApi } from '@/services/endpoints';
-
-const { width } = Dimensions.get('window');
+import { useAppLayoutWidth } from '@/layout/webLayout';
 
 export default function ProductDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const layoutWidth = useAppLayoutWidth();
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const { user, showCompanyPrice, setShowCompanyPrice, isAuthenticated, addToGuestCart } = useAuthStore();
@@ -82,7 +81,12 @@ export default function ProductDetailsScreen() {
       <View>
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
           {images.map((uri, i) => (
-            <Image key={i} source={{ uri }} style={styles.heroImage} resizeMode="cover" />
+            <Image
+              key={i}
+              source={{ uri }}
+              style={[styles.heroImage, { width: layoutWidth }]}
+              resizeMode="cover"
+            />
           ))}
         </ScrollView>
         <TouchableOpacity
@@ -177,7 +181,7 @@ export default function ProductDetailsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loading: { padding: spacing.md },
-  heroImage: { width, height: 320, backgroundColor: colors.border },
+  heroImage: { height: 320, backgroundColor: colors.border },
   wishlistBtn: {
     position: 'absolute',
     top: spacing.md,

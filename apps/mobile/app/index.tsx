@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { BRAND } from '@doublea/shared';
@@ -13,9 +13,10 @@ export default function SplashScreen() {
   const { isLoading, user } = useAuthStore();
 
   useEffect(() => {
+    const useNativeDriver = Platform.OS !== 'web';
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver }),
     ]).start();
   }, []);
 

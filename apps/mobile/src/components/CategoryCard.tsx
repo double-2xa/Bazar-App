@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import type { Category } from '@doublea/shared';
 import { colors, borderRadius, typography, spacing, shadows } from '../theme';
+import { useAppLayoutWidth, useCategoryGridColumns } from '@/layout/webLayout';
 
 interface CategoryCardProps {
   category: Category;
@@ -12,10 +13,13 @@ interface CategoryCardProps {
 
 export function CategoryCard({ category, onPress, variant = 'compact' }: CategoryCardProps) {
   const isGrid = variant === 'grid';
+  const layoutWidth = useAppLayoutWidth();
+  const columns = useCategoryGridColumns();
+  const gridWidth = (layoutWidth - spacing.md * (columns + 1)) / columns;
 
   return (
     <TouchableOpacity
-      style={[styles.card, isGrid && styles.cardGrid]}
+      style={[styles.card, isGrid && styles.cardGrid, isGrid && { width: gridWidth }]}
       onPress={onPress}
       activeOpacity={0.8}
       accessibilityRole="button"
@@ -40,7 +44,6 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   cardGrid: {
-    width: '48%',
     marginRight: 0,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,

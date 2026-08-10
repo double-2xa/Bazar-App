@@ -3,6 +3,7 @@ import { DeliveryService } from './delivery.service';
 import { DeliveryProofDto, DeliveryRejectDto } from './dto/delivery.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination.dto';
 
 @Controller('delivery')
 @Roles('delivery_agent')
@@ -28,6 +29,11 @@ export class DeliveryController {
   @Get('orders')
   getOrders(@CurrentUser('sub') agentId: string, @Query('status') status?: string) {
     return this.deliveryService.getAssignedOrders(agentId, status);
+  }
+
+  @Get('orders/completed/history')
+  getCompletedOrders(@CurrentUser('sub') agentId: string, @Query() query: PaginationQueryDto) {
+    return this.deliveryService.getCompletedOrders(agentId, query.page, query.limit);
   }
 
   @Get('orders/available')
