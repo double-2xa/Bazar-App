@@ -134,6 +134,7 @@ export const CUSTOMER_ORDER_STEP_LABELS: Record<string, string> = {
 
 export const CUSTOMER_PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash_on_delivery: 'Cash on delivery',
+  wish_money: 'Wish Money',
   card: 'Card',
 };
 
@@ -152,7 +153,7 @@ export const DRIVER_ORDER_GROUPS = [
   'delivered',
 ] as const;
 
-export const PAYMENT_METHODS = ['cash_on_delivery', 'card'] as const;
+export const PAYMENT_METHODS = ['cash_on_delivery', 'wish_money'] as const;
 
 export const DEFAULT_DELIVERY_FEE = 5.99;
 export const DEFAULT_TAX_RATE = 0.08;

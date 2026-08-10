@@ -17,6 +17,7 @@ import { AdminModule } from './admin/admin.module';
 import { BannersModule } from './banners/banners.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { LocationsModule } from './locations/locations.module';
+import { WhishModule } from './whish/whish.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { LocationsModule } from './locations/locations.module';
     AdminModule,
     BannersModule,
     WishlistModule,
+    WhishModule,
   ],
   controllers: [AppController],
 })

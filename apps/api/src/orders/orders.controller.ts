@@ -46,4 +46,12 @@ export class OrdersController {
   ) {
     return this.ordersService.cancelOrder(userId, id);
   }
+
+  @Post(':id/whish/verify')
+  verifyWhish(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.ordersService.verifyWhishPayment(userId, id);
+  }
 }

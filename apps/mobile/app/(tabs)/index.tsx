@@ -144,14 +144,6 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.brandName}>{BRAND.shopName}</Text>
-          <TouchableOpacity style={styles.locationRow}>
-            <Ionicons name="location" size={18} color={colors.primary} />
-            <View>
-              <Text style={styles.deliverTo}>Deliver to</Text>
-              <Text style={styles.location}>New York, NY</Text>
-            </View>
-            <Ionicons name="chevron-down" size={16} color={colors.mutedText} />
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -205,9 +197,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   brandName: { ...typography.h3, color: colors.primary, fontWeight: '800', marginBottom: spacing.xs },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  deliverTo: { ...typography.caption, color: colors.mutedText },
-  location: { ...typography.bodySmall, color: colors.text, fontWeight: '600' },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',

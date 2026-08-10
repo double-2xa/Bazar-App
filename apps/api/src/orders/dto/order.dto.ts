@@ -10,7 +10,7 @@ import {
   IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PaymentMethod, PriceType } from '@prisma/client';
+import { PriceType } from '@prisma/client';
 import { ORDER_STATUSES } from '@doublea/shared';
 
 class OrderItemInput {
@@ -31,8 +31,8 @@ export class CreateOrderDto {
   addressId!: string;
 
   @IsOptional()
-  @IsEnum(PaymentMethod)
-  paymentMethod?: PaymentMethod;
+  @IsIn(['cash_on_delivery', 'wish_money'])
+  paymentMethod?: 'cash_on_delivery' | 'wish_money';
 
   @IsOptional()
   @IsString()
@@ -55,6 +55,11 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @IsString()
   note?: string;
+}
+
+export class UpdatePaymentStatusDto {
+  @IsIn(['unpaid', 'paid', 'refunded'])
+  paymentStatus!: 'unpaid' | 'paid' | 'refunded';
 }
 
 export class AssignDeliveryAgentDto {

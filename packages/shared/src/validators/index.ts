@@ -54,7 +54,7 @@ export const addressSchema = z
 
 export const createOrderSchema = z.object({
   addressId: z.string().uuid(),
-  paymentMethod: z.enum(['cash_on_delivery', 'card']).default('cash_on_delivery'),
+  paymentMethod: z.enum(['cash_on_delivery', 'wish_money']).default('cash_on_delivery'),
   customerNote: z.string().optional(),
   couponCode: z.string().optional(),
   items: z

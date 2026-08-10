@@ -23,6 +23,7 @@ import {
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash_on_delivery: 'Cash on delivery',
+  wish_money: 'Wish Money',
   card: 'Card',
 };
 
@@ -271,9 +272,15 @@ export default function DeliveryOrderDetailsScreen() {
               variant={PAYMENT_STATUS_VARIANT[order.paymentStatus] ?? 'warning'}
             />
           </View>
-          {order.paymentMethod === 'cash_on_delivery' && order.status !== 'delivered' && (
+          {order.paymentMethod === 'cash_on_delivery' && order.paymentStatus === 'unpaid' && order.status !== 'delivered' ? (
             <Text style={styles.muted}>Collect ${order.totalAmount.toFixed(2)} on delivery.</Text>
-          )}
+          ) : null}
+          {order.paymentMethod === 'wish_money' && order.paymentStatus === 'unpaid' ? (
+            <Text style={styles.muted}>Wish payment pending — do not collect.</Text>
+          ) : null}
+          {order.paymentMethod === 'wish_money' && order.paymentStatus === 'paid' ? (
+            <Text style={styles.muted}>Paid via Wish — do not collect.</Text>
+          ) : null}
         </GlassCard>
 
         <GlassCard style={styles.cardGap}>

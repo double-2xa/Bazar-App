@@ -48,14 +48,16 @@ export class AddressesService {
 
   async findAll(userId: string): Promise<AddressPublic[]> {
     const rows = await this.prisma.address.findMany({
-      where: { userId },
+      where: { userId, deletedAt: null },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
     return rows.map((r) => this.toPublic(r));
   }
 
   async findOne(userId: string, id: string): Promise<AddressPublic> {
-    const address = await this.prisma.address.findFirst({ where: { id, userId } });
+    const address = await this.prisma.address.findFirst({
+      where: { id, userId, deletedAt: null },
+    });
     if (!address) throw new NotFoundException('Address not found');
     return this.toPublic(address);
   }
@@ -64,7 +66,10 @@ export class AddressesService {
     const structured = this.resolveStructuredFields(dto);
 
     if (dto.isDefault) {
-      await this.prisma.address.updateMany({ where: { userId }, data: { isDefault: false } });
+      await this.prisma.address.updateMany({
+        where: { userId, deletedAt: null },
+        data: { isDefault: false },
+      });
     }
 
     const locationFields = this.buildLocationFields(dto.latitude, dto.longitude, dto.locationAccuracyM);
@@ -97,7 +102,10 @@ export class AddressesService {
     await this.requireOwned(userId, id);
 
     if (dto.isDefault) {
-      await this.prisma.address.updateMany({ where: { userId }, data: { isDefault: false } });
+      await this.prisma.address.updateMany({
+        where: { userId, deletedAt: null },
+        data: { isDefault: false },
+      });
     }
 
     const data: Prisma.AddressUpdateInput = {};
@@ -143,13 +151,19 @@ export class AddressesService {
 
   async remove(userId: string, id: string) {
     await this.requireOwned(userId, id);
-    await this.prisma.address.delete({ where: { id } });
+    await this.prisma.address.update({
+      where: { id },
+      data: { deletedAt: new Date(), isDefault: false },
+    });
     return { message: 'Address deleted' };
   }
 
   async setDefault(userId: string, id: string): Promise<AddressPublic> {
     await this.requireOwned(userId, id);
-    await this.prisma.address.updateMany({ where: { userId }, data: { isDefault: false } });
+    await this.prisma.address.updateMany({
+      where: { userId, deletedAt: null },
+      data: { isDefault: false },
+    });
     const updated = await this.prisma.address.update({ where: { id }, data: { isDefault: true } });
     return this.toPublic(updated);
   }
@@ -225,7 +239,9 @@ export class AddressesService {
   }
 
   private async requireOwned(userId: string, id: string) {
-    const address = await this.prisma.address.findFirst({ where: { id, userId } });
+    const address = await this.prisma.address.findFirst({
+      where: { id, userId, deletedAt: null },
+    });
     if (!address) throw new NotFoundException('Address not found');
     return address;
   }

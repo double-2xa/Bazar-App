@@ -2,7 +2,7 @@ import { Controller, Get, Patch, Post, Delete, Body, Param, Query, ParseUUIDPipe
 import { AdminService } from './admin.service';
 import { OrdersService } from '../orders/orders.service';
 import { CreateDeliveryAgentDto } from './dto/admin.dto';
-import { UpdateOrderStatusDto, AssignDeliveryAgentDto } from '../orders/dto/order.dto';
+import { UpdateOrderStatusDto, AssignDeliveryAgentDto, UpdatePaymentStatusDto } from '../orders/dto/order.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
@@ -112,6 +112,15 @@ export class AdminController {
     return this.ordersService.updateStatus(id, dto.status, adminId, dto.note, {
       validateAdmin: true,
     });
+  }
+
+  @Patch('orders/:id/payment-status')
+  updatePaymentStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePaymentStatusDto,
+    @CurrentUser('sub') adminId: string,
+  ) {
+    return this.ordersService.updatePaymentStatus(id, dto.paymentStatus, adminId);
   }
 
   @Patch('orders/:id/assign-delivery-agent')

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { Order, DeliveryAgentSummary } from '@doublea/shared';
-import { ADMIN_ORDER_TRANSITIONS } from '@doublea/shared';
+import { ADMIN_ORDER_TRANSITIONS, CUSTOMER_PAYMENT_METHOD_LABELS } from '@doublea/shared';
 import { adminOrdersApi, deliveryAgentsApi } from '@/services/orders';
 import {
   canAssignDriver,
@@ -21,6 +21,10 @@ function allowedStatuses(current: string): string[] {
   return [current, ...next];
 }
 
+function formatPaymentMethod(method: string): string {
+  return CUSTOMER_PAYMENT_METHOD_LABELS[method] ?? method.replace(/_/g, ' ');
+}
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
@@ -34,6 +38,7 @@ export default function OrderDetailPage() {
   const [assigning, setAssigning] = useState(false);
   const [unassigning, setUnassigning] = useState(false);
   const [markingPacked, setMarkingPacked] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
 
   const loadOrder = useCallback(() => {
     if (!params.id) return;
@@ -106,6 +111,21 @@ export default function OrderDetailPage() {
       setError(getApiErrorMessage(err, 'Failed to mark packing as finished.'));
     } finally {
       setMarkingPacked(false);
+    }
+  };
+
+  const markAsPaid = async () => {
+    if (!order) return;
+    setMarkingPaid(true);
+    setError('');
+    try {
+      const updated = await adminOrdersApi.updatePaymentStatus(order.id, 'paid');
+      setOrder(updated);
+      flashSuccess('Payment marked as paid.');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to update payment status.'));
+    } finally {
+      setMarkingPaid(false);
     }
   };
 
@@ -247,8 +267,19 @@ export default function OrderDetailPage() {
             <p style={{ color: 'var(--muted)' }}>{order.user?.email}</p>
             <p style={{ color: 'var(--muted)' }}>{order.user?.phone ?? '—'}</p>
             <p style={{ marginTop: 12, fontSize: 13, color: 'var(--muted)' }}>
-              Payment: {order.paymentMethod.replace(/_/g, ' ')} · {order.paymentStatus}
+              Payment: {formatPaymentMethod(order.paymentMethod)} · {order.paymentStatus}
             </p>
+            {order.paymentMethod === 'wish_money' && order.paymentStatus === 'unpaid' ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginTop: 12 }}
+                onClick={markAsPaid}
+                disabled={markingPaid}
+              >
+                {markingPaid ? 'Marking…' : 'Mark as paid'}
+              </button>
+            ) : null}
           </div>
           <div>
             <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>
@@ -407,8 +438,19 @@ export default function OrderDetailPage() {
                   Payment
                 </p>
                 <p style={{ fontWeight: 600, marginTop: 4 }}>
-                  {order.paymentMethod.replace(/_/g, ' ')} · {order.paymentStatus}
+                  {formatPaymentMethod(order.paymentMethod)} · {order.paymentStatus}
                 </p>
+                {order.paymentMethod === 'wish_money' && order.paymentStatus === 'unpaid' ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ marginTop: 8 }}
+                    onClick={markAsPaid}
+                    disabled={markingPaid}
+                  >
+                    {markingPaid ? 'Marking…' : 'Mark as paid'}
+                  </button>
+                ) : null}
               </div>
               <div>
                 <p

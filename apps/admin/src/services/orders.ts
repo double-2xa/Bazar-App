@@ -24,6 +24,11 @@ export const adminOrdersApi = {
   updateStatus: (id: string, status: string, note?: string) =>
     api.patch<Order>(`/admin/orders/${id}/status`, { status, note }).then((r) => r.data),
 
+  updatePaymentStatus: (id: string, paymentStatus: 'unpaid' | 'paid' | 'refunded') =>
+    api
+      .patch<Order>(`/admin/orders/${id}/payment-status`, { paymentStatus })
+      .then((r) => r.data),
+
   assignAgent: (id: string, deliveryAgentId: string) =>
     api
       .patch<Order>(`/admin/orders/${id}/assign-delivery-agent`, { deliveryAgentId })

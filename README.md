@@ -127,6 +127,11 @@ npm run start
 | API_PORT              | API server port                | 3001                                         |
 | NEXT_PUBLIC_API_URL   | API URL for admin              | http://localhost:3001/api                    |
 | EXPO_PUBLIC_API_URL   | API URL for mobile             | http://localhost:3001/api                    |
+| WHISH_CHANNEL         | Whish Pay merchant channel     | (from Whish merchant portal)                 |
+| WHISH_SECRET          | Whish Pay secret               | (from Whish merchant portal)                 |
+| WHISH_WEBSITE_URL     | Website registered with Whish  | https://your-domain.com                      |
+| WHISH_ENVIRONMENT     | `sandbox` or `production`      | sandbox                                      |
+| PUBLIC_API_URL        | Public API base incl. `/api` for Whish callbacks | http://localhost:3001/api (use tunnel in sandbox) |
 
 ## API Endpoints
 
@@ -136,7 +141,8 @@ Base URL: `http://localhost:3001/api`
 - **Products:** `GET /products`, `GET /products/:id`, admin CRUD
 - **Categories:** `GET /categories`, admin CRUD
 - **Cart:** `GET /cart`, `POST /cart/items` (authenticated)
-- **Orders:** `POST /orders`, `GET /orders/my-orders`, `PATCH /orders/:id/cancel`
+- **Orders:** `POST /orders`, `GET /orders/my-orders`, `PATCH /orders/:id/cancel`, `POST /orders/:id/whish/verify`
+- **Whish Pay:** `GET /whish/callback/*`, `GET /whish/redirect/*` (public)
 - **Delivery:** `GET /delivery/orders`, status update endpoints
 - **Admin:** `/admin/dashboard`, `/admin/users`, `/admin/orders`, etc.
 

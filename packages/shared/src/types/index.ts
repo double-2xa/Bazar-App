@@ -14,7 +14,7 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
-export type PaymentMethod = 'cash_on_delivery' | 'card';
+export type PaymentMethod = 'cash_on_delivery' | 'wish_money' | 'card';
 
 export type PaymentStatus = 'unpaid' | 'paid' | 'refunded';
 
@@ -168,6 +168,10 @@ export interface Order {
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  whishExternalId?: string | null;
+  whishTransactionId?: string | null;
+  /** Present after creating a Wish Money order — open in browser to pay */
+  collectUrl?: string;
   subtotal: number;
   deliveryFee: number;
   discountAmount: number;

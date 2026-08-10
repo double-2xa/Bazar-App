@@ -87,10 +87,17 @@ export const locationsApi = {
 };
 
 export const ordersApi = {
-  create: (data: Record<string, unknown>) => api.post<Order>('/orders', data).then((r) => r.data),
+  create: (data: Record<string, unknown>) =>
+    api.post<Order & { collectUrl?: string }>('/orders', data).then((r) => r.data),
   getMyOrders: () => api.get<Order[]>('/orders/my-orders').then((r) => r.data),
   getById: (id: string) => api.get<Order>(`/orders/${id}`).then((r) => r.data),
   cancel: (id: string) => api.patch(`/orders/${id}/cancel`).then((r) => r.data),
+  verifyWhishPayment: (id: string) =>
+    api
+      .post<Order & { collectStatus?: 'success' | 'failed' | 'pending' }>(
+        `/orders/${id}/whish/verify`,
+      )
+      .then((r) => r.data),
   getDeliveryQuote: (addressId: string) =>
     api
       .get<{

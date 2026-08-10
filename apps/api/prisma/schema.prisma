@@ -38,6 +38,7 @@ enum OrderStatus {
 
 enum PaymentMethod {
   cash_on_delivery
+  wish_money
   card
 }
 
@@ -194,6 +195,8 @@ model Address {
   locationCapturedAt DateTime?
   hasExactLocation   Boolean   @default(false)
   isDefault          Boolean   @default(false)
+  /// Soft-delete so orders can keep their address FK
+  deletedAt          DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -203,6 +206,7 @@ model Address {
   @@index([governorate, district, city])
   @@index([locationGeohash])
   @@index([hasExactLocation])
+  @@index([userId, deletedAt])
 }
 
 model Cart {
@@ -237,6 +241,9 @@ model Order {
   status          OrderStatus   @default(pending)
   paymentMethod   PaymentMethod @default(cash_on_delivery)
   paymentStatus   PaymentStatus @default(unpaid)
+  /// Whish Pay external numeric id (stringified)
+  whishExternalId String?       @unique
+  whishTransactionId String?
   subtotal        Decimal       @db.Decimal(10, 2)
   deliveryFee     Decimal       @db.Decimal(10, 2)
   discountAmount  Decimal       @default(0) @db.Decimal(10, 2)

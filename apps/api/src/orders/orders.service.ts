@@ -3,6 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
+  forwardRef,
+  HttpException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { decimalToNumber, generateOrderNumber, assertCompanyCanShop } from "../common/utils";
@@ -22,6 +25,7 @@ import {
   STORE_ORIGIN,
 } from "@doublea/shared";
 import { NotificationsService } from "../notifications/notifications.service";
+import { WhishService } from "../whish/whish.service";
 
 const ORDER_DETAIL_INCLUDE = {
   items: true,
@@ -38,6 +42,8 @@ export class OrdersService {
     private prisma: PrismaService,
     private addressesService: AddressesService,
     private notifications: NotificationsService,
+    @Inject(forwardRef(() => WhishService))
+    private whishService: WhishService,
   ) {}
 
   private formatOrder(order: Record<string, unknown>) {
@@ -98,7 +104,7 @@ export class OrdersService {
 
   async getDeliveryQuote(userId: string, addressId: string) {
     const address = await this.prisma.address.findFirst({
-      where: { id: addressId, userId },
+      where: { id: addressId, userId, deletedAt: null },
     });
     if (!address) throw new NotFoundException("Address not found");
     return this.quoteDeliveryForAddress(address);
@@ -106,7 +112,7 @@ export class OrdersService {
 
   async create(userId: string, userRole: string, dto: CreateOrderDto) {
     const address = await this.prisma.address.findFirst({
-      where: { id: dto.addressId, userId },
+      where: { id: dto.addressId, userId, deletedAt: null },
     });
     if (!address) throw new NotFoundException("Address not found");
 
@@ -193,6 +199,11 @@ export class OrdersService {
     const taxable = subtotal - discountAmount;
     const taxAmount = taxable * DEFAULT_TAX_RATE;
     const totalAmount = taxable + deliveryFee + taxAmount;
+    const paymentMethod = dto.paymentMethod || "cash_on_delivery";
+    const isWish = paymentMethod === "wish_money";
+    const whishExternalId = isWish
+      ? String(this.whishService.generateExternalId())
+      : null;
 
     const order = await this.prisma.$transaction(async (tx) => {
       for (const item of orderItems) {
@@ -210,7 +221,9 @@ export class OrdersService {
           orderNumber: generateOrderNumber(),
           userId,
           addressId: dto.addressId,
-          paymentMethod: dto.paymentMethod || "cash_on_delivery",
+          paymentMethod,
+          paymentStatus: "unpaid",
+          whishExternalId,
           subtotal,
           deliveryFee,
           discountAmount,
@@ -221,7 +234,7 @@ export class OrdersService {
           statusHistory: {
             create: {
               status: "pending",
-              note: "Order placed",
+              note: isWish ? "Order placed — awaiting Wish Money payment" : "Order placed",
               changedByUserId: userId,
             },
           },
@@ -235,15 +248,48 @@ export class OrdersService {
         },
       });
 
-      await tx.cartItem.deleteMany({
-        where: {
-          cart: { userId },
-          productId: { in: orderItems.map((i) => i.productId) },
-        },
-      });
+      // Wish: keep cart until payment is confirmed so failed/cancelled pays don't lose the cart
+      if (!isWish) {
+        await tx.cartItem.deleteMany({
+          where: {
+            cart: { userId },
+            productId: { in: orderItems.map((i) => i.productId) },
+          },
+        });
+      }
 
       return created;
     });
+
+    if (isWish && whishExternalId) {
+      try {
+        const payment = await this.whishService.createPayment({
+          amount: decimalToNumber(order.totalAmount),
+          orderNumber: order.orderNumber,
+          externalId: Number(whishExternalId),
+          orderId: order.id,
+        });
+
+        if (!payment.success || !payment.collectUrl) {
+          await this.rollbackUnpaidWishOrder(order.id, orderItems);
+          throw new BadRequestException(
+            payment.dialog?.message ||
+              "Could not start Wish Money payment. Please try again.",
+          );
+        }
+
+        return {
+          ...this.formatOrder(order as unknown as Record<string, unknown>),
+          collectUrl: payment.collectUrl,
+        };
+      } catch (err) {
+        if (err instanceof HttpException) throw err;
+        await this.rollbackUnpaidWishOrder(order.id, orderItems);
+        const message =
+          err instanceof Error ? err.message : "Wish Money payment failed to start";
+        throw new BadRequestException(message);
+      }
+    }
 
     try {
       await this.notifications.notifyDeliveryAgentsNewOrder(order);
@@ -252,6 +298,126 @@ export class OrdersService {
     }
 
     return this.formatOrder(order as unknown as Record<string, unknown>);
+  }
+
+  private async rollbackUnpaidWishOrder(
+    orderId: string,
+    orderItems: { productId: string; quantity: number }[],
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of orderItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stockQuantity: { increment: item.quantity },
+            soldCount: { decrement: item.quantity },
+          },
+        });
+      }
+      await tx.order.delete({ where: { id: orderId } });
+    });
+  }
+
+  async confirmWhishPaymentByExternalId(externalId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { whishExternalId: externalId, paymentMethod: "wish_money" },
+      include: { items: true },
+    });
+    if (!order) return null;
+    if (order.paymentStatus === "paid") {
+      return this.fetchOrderDetail(order.id);
+    }
+
+    const status = await this.whishService.getPaymentStatus(Number(externalId));
+    if (status.collectStatus !== "success") {
+      return this.fetchOrderDetail(order.id);
+    }
+
+    return this.markWishOrderPaid(order.id, order.userId, status.transactionId);
+  }
+
+  async verifyWhishPayment(userId: string, orderId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+    if (order.paymentMethod !== "wish_money") {
+      throw new BadRequestException("Order is not a Wish Money payment");
+    }
+    if (!order.whishExternalId) {
+      throw new BadRequestException("Wish Money payment session missing");
+    }
+    if (order.paymentStatus === "paid") {
+      return {
+        ...((await this.fetchOrderDetail(orderId)) as Record<string, unknown>),
+        collectStatus: "success" as const,
+      };
+    }
+
+    const status = await this.whishService.getPaymentStatus(
+      Number(order.whishExternalId),
+    );
+
+    if (status.collectStatus === "success") {
+      const paid = await this.markWishOrderPaid(
+        order.id,
+        order.userId,
+        status.transactionId,
+      );
+      return { ...paid, collectStatus: "success" as const };
+    }
+
+    return {
+      ...((await this.fetchOrderDetail(orderId)) as Record<string, unknown>),
+      collectStatus: status.collectStatus,
+    };
+  }
+
+  private async markWishOrderPaid(
+    orderId: string,
+    userId: string,
+    transactionId?: string,
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+    if (order.paymentStatus === "paid") {
+      return this.fetchOrderDetail(orderId);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          paymentStatus: "paid",
+          whishTransactionId: transactionId || order.whishTransactionId,
+          statusHistory: {
+            create: {
+              status: order.status,
+              note: "Wish Money payment confirmed",
+              changedByUserId: userId,
+            },
+          },
+        },
+      });
+
+      await tx.cartItem.deleteMany({
+        where: {
+          cart: { userId },
+          productId: { in: order.items.map((i) => i.productId) },
+        },
+      });
+    });
+
+    try {
+      await this.notifications.notifyDeliveryAgentsNewOrder(order);
+    } catch {
+      /* ignore */
+    }
+
+    return this.fetchOrderDetail(orderId);
   }
 
   async getMyOrders(userId: string) {
@@ -352,6 +518,39 @@ export class OrdersService {
         status: status as never,
         statusHistory: {
           create: { status: status as never, note, changedByUserId },
+        },
+      },
+    });
+
+    return this.fetchOrderDetail(orderId);
+  }
+
+  async updatePaymentStatus(
+    orderId: string,
+    paymentStatus: "unpaid" | "paid" | "refunded",
+    adminId: string,
+  ) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException("Order not found");
+
+    if (order.status === "cancelled") {
+      throw new BadRequestException("Cannot update payment on a cancelled order");
+    }
+
+    if (order.paymentStatus === paymentStatus) {
+      return this.fetchOrderDetail(orderId);
+    }
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        paymentStatus,
+        statusHistory: {
+          create: {
+            status: order.status,
+            note: `Payment marked ${paymentStatus}`,
+            changedByUserId: adminId,
+          },
         },
       },
     });

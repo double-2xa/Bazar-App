@@ -239,6 +239,38 @@ export default function OrderDetailsScreen() {
         {order.paymentMethod === 'cash_on_delivery' && order.paymentStatus === 'unpaid' && (
           <Text style={styles.muted}>Pay ${order.totalAmount.toFixed(2)} when your order arrives.</Text>
         )}
+        {order.paymentMethod === 'wish_money' && order.paymentStatus === 'unpaid' && (
+          <>
+            <Text style={styles.muted}>
+              Wish Money payment pending. If you already paid, tap below to confirm.
+            </Text>
+            <AppButton
+              title="Verify Wish payment"
+              variant="outline"
+              size="sm"
+              style={{ marginTop: spacing.sm }}
+              onPress={async () => {
+                try {
+                  const verified = await ordersApi.verifyWhishPayment(order.id);
+                  if (verified.paymentStatus === 'paid') {
+                    Alert.alert('Payment confirmed', 'Wish Money payment was confirmed.');
+                    refetch();
+                  } else {
+                    Alert.alert(
+                      'Still unpaid',
+                      'Wish has not confirmed this payment yet. Finish paying in Wish Money, then try again.',
+                    );
+                  }
+                } catch (err) {
+                  Alert.alert('Error', getErrorMessage(err, 'Could not verify payment'));
+                }
+              }}
+            />
+          </>
+        )}
+        {order.paymentMethod === 'wish_money' && order.paymentStatus === 'paid' && (
+          <Text style={styles.muted}>Wish Money payment confirmed.</Text>
+        )}
       </GlassCard>
 
       <GlassCard style={styles.card}>

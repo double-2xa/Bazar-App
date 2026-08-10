@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { Address } from '@doublea/shared';
 import { addressesApi } from '@/services/endpoints';
+import { getErrorMessage } from '@/services/getErrorMessage';
 import { AppButton, EmptyState, GlassCard, ScreenContainer } from '@/components';
 import { colors, spacing, radius, typography, shadows } from '@/theme';
 import { hapticSelection } from '@/utils/haptics';
@@ -26,7 +27,11 @@ export default function AddressListScreen() {
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => addressesApi.remove(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['addresses'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['addresses'] });
+      hapticSelection();
+    },
+    onError: (err) => Alert.alert('Remove failed', getErrorMessage(err, 'Could not remove address')),
   });
 
   const handleRemove = (address: Address) => {
