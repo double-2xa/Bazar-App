@@ -156,6 +156,28 @@ export class OrdersService {
       if (existingOrder.idempotencyHash !== idempotencyHash) {
         throw new ConflictException("This idempotency key was already used for a different checkout");
       }
+      if (
+        existingOrder.paymentMethod === "wish_money" &&
+        existingOrder.paymentStatus === "unpaid" &&
+        existingOrder.whishExternalId
+      ) {
+        const payment = await this.whishService.createPayment({
+          amount: decimalToNumber(existingOrder.totalAmount),
+          orderNumber: existingOrder.orderNumber,
+          externalId: Number(existingOrder.whishExternalId),
+          orderId: existingOrder.id,
+        });
+        if (!payment.success || !payment.collectUrl) {
+          throw new BadRequestException(
+            payment.dialog?.message ||
+              "Could not start Wish Money payment. Please try again.",
+          );
+        }
+        return {
+          ...this.formatOrder(existingOrder as unknown as Record<string, unknown>),
+          collectUrl: payment.collectUrl,
+        };
+      }
       return this.formatOrder(existingOrder as unknown as Record<string, unknown>);
     }
 
@@ -262,124 +284,133 @@ export class OrdersService {
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        order = await this.prisma.$transaction(async (tx) => {
-          for (const item of orderItems) {
-            const stockUpdate = await tx.product.updateMany({
-              where: {
-                id: item.productId,
-                isActive: true,
-                stockQuantity: { gte: item.quantity },
-              },
-              data: {
-                stockQuantity: { decrement: item.quantity },
-                soldCount: { increment: item.quantity },
-              },
-            });
-            if (stockUpdate.count !== 1) {
-              throw new BadRequestException(`Insufficient stock for ${item.productName}`);
+        order = await this.prisma.$transaction(
+          async (tx) => {
+            for (const item of orderItems) {
+              const stockUpdate = await tx.product.updateMany({
+                where: {
+                  id: item.productId,
+                  isActive: true,
+                  stockQuantity: { gte: item.quantity },
+                },
+                data: {
+                  stockQuantity: { decrement: item.quantity },
+                  soldCount: { increment: item.quantity },
+                },
+              });
+              if (stockUpdate.count !== 1) {
+                throw new BadRequestException(
+                  `Insufficient stock for ${item.productName}`,
+                );
+              }
             }
-          }
 
-      const created = await tx.order.create({
-        data: {
-          orderNumber: generateOrderNumber(),
-          userId,
-          addressId: dto.addressId,
-          paymentMethod,
-          paymentStatus: "unpaid",
-          whishExternalId,
-          subtotal,
-          deliveryFee,
-          discountAmount,
-          taxAmount,
-          totalAmount,
-          customerNote: dto.customerNote,
-          items: { create: orderItems },
-          statusHistory: {
-            create: {
-              status: "pending",
-              note: isWish ? "Order placed — awaiting Wish Money payment" : "Order placed",
-              changedByUserId: userId,
-          const created = await tx.order.create({
-            data: {
-              orderNumber: generateOrderNumber(),
-              userId,
-              addressId: dto.addressId,
-              idempotencyKey,
-              idempotencyHash,
-              paymentMethod: dto.paymentMethod || "cash_on_delivery",
-              subtotal,
-              deliveryFee,
-              discountAmount,
-              taxAmount,
-              totalAmount,
-              customerNote: dto.customerNote,
-              items: { create: orderItems },
-              statusHistory: {
-                create: {
-                  status: "pending",
-                  note: "Order placed",
-                  changedByUserId: userId,
+            const created = await tx.order.create({
+              data: {
+                orderNumber: generateOrderNumber(),
+                userId,
+                addressId: dto.addressId,
+                idempotencyKey,
+                idempotencyHash,
+                paymentMethod,
+                paymentStatus: "unpaid",
+                whishExternalId,
+                subtotal,
+                deliveryFee,
+                discountAmount,
+                taxAmount,
+                totalAmount,
+                customerNote: dto.customerNote,
+                items: { create: orderItems },
+                statusHistory: {
+                  create: {
+                    status: "pending",
+                    note: isWish
+                      ? "Order placed — awaiting Wish Money payment"
+                      : "Order placed",
+                    changedByUserId: userId,
+                  },
                 },
               },
-            },
-            include: {
-              items: true,
-              address: true,
-              user: { select: { id: true, fullName: true, email: true, phone: true } },
-            },
-          });
+              include: {
+                items: true,
+                address: true,
+                user: {
+                  select: { id: true, fullName: true, email: true, phone: true },
+                },
+              },
+            });
 
-      // Wish: keep cart until payment is confirmed so failed/cancelled pays don't lose the cart
-      if (!isWish) {
-        await tx.cartItem.deleteMany({
-          where: {
-            cart: { userId },
-            productId: { in: orderItems.map((i) => i.productId) },
+            // Wish: keep cart until payment is confirmed
+            if (!isWish) {
+              await tx.cartItem.deleteMany({
+                where: {
+                  cart: { userId },
+                  productId: { in: orderItems.map((i) => i.productId) },
+                },
+              });
+            }
+
+            return created;
           },
-        });
-      }
-          await tx.cartItem.deleteMany({
-            where: {
-              cart: { userId },
-              productId: { in: orderItems.map((i) => i.productId) },
-            },
-          });
-
-          return created;
-        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
         createdNewOrder = true;
         break;
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-          const duplicate = await this.findIdempotentOrder(userId, idempotencyKey);
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          const duplicate = await this.findIdempotentOrder(
+            userId,
+            idempotencyKey,
+          );
           if (duplicate) {
             if (duplicate.idempotencyHash !== idempotencyHash) {
-              throw new ConflictException("This idempotency key was already used for a different checkout");
+              throw new ConflictException(
+                "This idempotency key was already used for a different checkout",
+              );
             }
             order = duplicate;
             break;
           }
           if (attempt < maxAttempts) continue;
         }
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034" && attempt < maxAttempts) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2034" &&
+          attempt < maxAttempts
+        ) {
           continue;
         }
         throw error;
       }
     }
 
-    if (isWish && whishExternalId) {
+    if (!order) {
+      throw new ConflictException(
+        "Checkout could not be completed safely. Please retry.",
+      );
+    }
+
+    if (isWish) {
+      const externalId = order.whishExternalId || whishExternalId;
+      if (!externalId) {
+        throw new BadRequestException("Wish Money payment session missing");
+      }
       try {
         const payment = await this.whishService.createPayment({
           amount: decimalToNumber(order.totalAmount),
           orderNumber: order.orderNumber,
-          externalId: Number(whishExternalId),
+          externalId: Number(externalId),
           orderId: order.id,
         });
 
         if (!payment.success || !payment.collectUrl) {
-          await this.rollbackUnpaidWishOrder(order.id, orderItems);
+          if (createdNewOrder) {
+            await this.rollbackUnpaidWishOrder(order.id, orderItems);
+          }
           throw new BadRequestException(
             payment.dialog?.message ||
               "Could not start Wish Money payment. Please try again.",
@@ -392,21 +423,22 @@ export class OrdersService {
         };
       } catch (err) {
         if (err instanceof HttpException) throw err;
-        await this.rollbackUnpaidWishOrder(order.id, orderItems);
+        if (createdNewOrder) {
+          await this.rollbackUnpaidWishOrder(order.id, orderItems);
+        }
         const message =
-          err instanceof Error ? err.message : "Wish Money payment failed to start";
+          err instanceof Error
+            ? err.message
+            : "Wish Money payment failed to start";
         throw new BadRequestException(message);
       }
     }
 
-    try {
-    if (!order) throw new ConflictException("Checkout could not be completed safely. Please retry.");
-
     if (createdNewOrder) {
       try {
-      await this.notifications.notifyDeliveryAgentsNewOrder(order);
+        await this.notifications.notifyDeliveryAgentsNewOrder(order);
       } catch {
-      /* order already created — notification failure must not fail checkout */
+        /* order already created — notification failure must not fail checkout */
       }
     }
 
@@ -533,19 +565,6 @@ export class OrdersService {
     return this.fetchOrderDetail(orderId);
   }
 
-  async getMyOrders(userId: string) {
-    const orders = await this.prisma.order.findMany({
-      where: { userId },
-      include: {
-        items: true,
-        address: true,
-        deliveryAgent: { select: { id: true, fullName: true, phone: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    return orders.map((o) =>
-      this.formatOrder(o as unknown as Record<string, unknown>),
-    );
   async getMyOrders(userId: string, page = 1, limit = 20) {
     const [orders, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({

@@ -11,12 +11,6 @@ import {
 } from "@nestjs/common";
 import { AdminService } from "./admin.service";
 import { OrdersService } from "../orders/orders.service";
-import { CreateDeliveryAgentDto } from "./dto/admin.dto";
-import {
-  UpdateOrderStatusDto,
-  AssignDeliveryAgentDto,
-  UpdatePaymentStatusDto,
-} from "../orders/dto/order.dto";
 import {
   AdminOrdersQueryDto,
   AdminUsersQueryDto,
@@ -25,11 +19,12 @@ import {
   UpdateAdminUserDto,
   UpdateDeliveryAgentDto,
 } from "./dto/admin.dto";
-import { Throttle } from "@nestjs/throttler";
 import {
   UpdateOrderStatusDto,
   AssignDeliveryAgentDto,
+  UpdatePaymentStatusDto,
 } from "../orders/dto/order.dto";
+import { Throttle } from "@nestjs/throttler";
 import { Roles } from "../common/decorators/roles.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 
