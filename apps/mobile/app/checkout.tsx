@@ -67,7 +67,16 @@ export default function CheckoutScreen() {
   const deliveryFee = deliveryQuote?.deliveryFee ?? 0;
   const taxAmount = subtotal * DEFAULT_TAX_RATE;
   const total = subtotal + deliveryFee + taxAmount;
-  const checkoutSignature = JSON.stringify({ selectedAddress, couponCode, note, items: items.map((item: { productId: string; quantity: number; selectedPriceType: string }) => [item.productId, item.quantity, item.selectedPriceType]) });
+  const checkoutSignature = JSON.stringify({
+    selectedAddress,
+    note,
+    paymentMethod,
+    items: items.map((item: { productId: string; quantity: number; selectedPriceType: string }) => [
+      item.productId,
+      item.quantity,
+      item.selectedPriceType,
+    ]),
+  });
 
   useEffect(() => {
     idempotencyKey.current = Crypto.randomUUID();
@@ -104,16 +113,19 @@ export default function CheckoutScreen() {
     }
     setLoading(true);
     try {
-      const order = await ordersApi.create({
-        addressId: selectedAddress,
-        paymentMethod,
-        customerNote: note || undefined,
-        items: items.map((item: { productId: string; quantity: number; selectedPriceType: string }) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          selectedPriceType: item.selectedPriceType,
-        })),
-      });
+      const order = await ordersApi.create(
+        {
+          addressId: selectedAddress,
+          paymentMethod,
+          customerNote: note || undefined,
+          items: items.map((item: { productId: string; quantity: number; selectedPriceType: string }) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            selectedPriceType: item.selectedPriceType,
+          })),
+        },
+        idempotencyKey.current,
+      );
 
       if (paymentMethod === 'wish_money') {
         if (!order.collectUrl) {
@@ -133,16 +145,6 @@ export default function CheckoutScreen() {
       }
 
       await goToConfirmation(order.orderNumber, order.totalAmount ?? 0);
-      }, idempotencyKey.current);
-      await queryClient.invalidateQueries({ queryKey: ['cart'] });
-      await queryClient.invalidateQueries({ queryKey: ['orders'] });
-      router.replace({
-        pathname: '/order-confirmation',
-        params: {
-          orderNumber: order.orderNumber,
-          total: String(order.totalAmount ?? 0),
-        },
-      });
     } catch (err: unknown) {
       Alert.alert('Error', getErrorMessage(err, 'Failed to place order'));
     } finally {

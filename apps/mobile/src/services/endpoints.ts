@@ -109,14 +109,9 @@ export const locationsApi = {
 };
 
 export const ordersApi = {
-  create: (data: Record<string, unknown>) =>
-    api
-      .post<Order & { collectUrl?: string }>("/orders", data)
-      .then((r) => r.data),
-  getMyOrders: () => api.get<Order[]>("/orders/my-orders").then((r) => r.data),
   create: (data: Record<string, unknown>, idempotencyKey: string) =>
     api
-      .post<Order>("/orders", data, {
+      .post<Order & { collectUrl?: string }>("/orders", data, {
         headers: { "Idempotency-Key": idempotencyKey },
       })
       .then((r) => r.data),
@@ -138,9 +133,9 @@ export const ordersApi = {
   cancel: (id: string) => api.patch(`/orders/${id}/cancel`).then((r) => r.data),
   verifyWhishPayment: (id: string) =>
     api
-      .post<
-        Order & { collectStatus?: "success" | "failed" | "pending" }
-      >(`/orders/${id}/whish/verify`)
+      .post<Order & { collectStatus?: "success" | "failed" | "pending" }>(
+        `/orders/${id}/whish/verify`,
+      )
       .then((r) => r.data),
   getDeliveryQuote: (addressId: string) =>
     api
