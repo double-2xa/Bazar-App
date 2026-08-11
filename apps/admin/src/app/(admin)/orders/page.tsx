@@ -250,7 +250,12 @@ function OrdersPageContent() {
                     </td>
                     <td>{itemCount}</td>
                     <td>${order.totalAmount.toFixed(2)}</td>
-                    <td>{order.paymentStatus}</td>
+                    <td>
+                      <div style={{ fontSize: 13 }}>{order.paymentStatus}</div>
+                      {order.paymentMethod === 'wish_money' ? (
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>Wish Money</div>
+                      ) : null}
+                    </td>
                     <td>{new Date(order.createdAt).toLocaleDateString()}</td>
                     <td>
                       {canChangeStatus ? (

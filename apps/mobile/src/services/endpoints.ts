@@ -111,7 +111,7 @@ export const locationsApi = {
 export const ordersApi = {
   create: (data: Record<string, unknown>, idempotencyKey: string) =>
     api
-      .post<Order & { collectUrl?: string }>("/orders", data, {
+      .post<Order>("/orders", data, {
         headers: { "Idempotency-Key": idempotencyKey },
       })
       .then((r) => r.data),
@@ -131,12 +131,6 @@ export const ordersApi = {
       .get<Blob>(`/orders/${id}/invoice`, { responseType: "blob" })
       .then((r) => r.data),
   cancel: (id: string) => api.patch(`/orders/${id}/cancel`).then((r) => r.data),
-  verifyWhishPayment: (id: string) =>
-    api
-      .post<Order & { collectStatus?: "success" | "failed" | "pending" }>(
-        `/orders/${id}/whish/verify`,
-      )
-      .then((r) => r.data),
   getDeliveryQuote: (addressId: string) =>
     api
       .get<{

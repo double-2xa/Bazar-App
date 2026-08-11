@@ -6,6 +6,8 @@ export type AdminOrdersQuery = {
   limit?: number;
   status?: string;
   scope?: 'active' | 'archive';
+  paymentMethod?: 'cash_on_delivery' | 'wish_money' | 'card';
+  paymentStatus?: 'unpaid' | 'paid' | 'refunded';
 };
 
 export type CreateDeliveryAgentInput = {

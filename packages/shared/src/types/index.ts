@@ -141,6 +141,8 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   selectedPriceType: PriceType;
+  /** Payment method chosen at checkout (same for all items on an order) */
+  paymentMethod: PaymentMethod;
   totalPrice: number;
 }
 
@@ -170,8 +172,6 @@ export interface Order {
   paymentStatus: PaymentStatus;
   whishExternalId?: string | null;
   whishTransactionId?: string | null;
-  /** Present after creating a Wish Money order — open in browser to pay */
-  collectUrl?: string;
   subtotal: number;
   deliveryFee: number;
   discountAmount: number;

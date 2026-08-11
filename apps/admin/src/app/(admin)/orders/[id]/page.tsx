@@ -127,17 +127,21 @@ export default function OrderDetailPage() {
     }
   };
 
-  const markAsPaid = async () => {
+  const setWishPaymentStatus = async (paymentStatus: "paid" | "unpaid") => {
     if (!order) return;
     setMarkingPaid(true);
     setError("");
     try {
       const updated = await adminOrdersApi.updatePaymentStatus(
         order.id,
-        "paid",
+        paymentStatus,
       );
       setOrder(updated);
-      flashSuccess("Payment marked as paid.");
+      flashSuccess(
+        paymentStatus === "paid"
+          ? "Wish Money marked as paid."
+          : "Wish Money marked as unpaid.",
+      );
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to update payment status."));
     } finally {
@@ -368,15 +372,29 @@ export default function OrderDetailPage() {
               {order.paymentStatus}
             </p>
             {order.paymentMethod === "wish_money" &&
+            order.status !== "cancelled" &&
             order.paymentStatus === "unpaid" ? (
               <button
                 type="button"
                 className="btn btn-primary"
                 style={{ marginTop: 12 }}
-                onClick={markAsPaid}
+                onClick={() => setWishPaymentStatus("paid")}
                 disabled={markingPaid}
               >
                 {markingPaid ? "Marking…" : "Mark as paid"}
+              </button>
+            ) : null}
+            {order.paymentMethod === "wish_money" &&
+            order.status !== "cancelled" &&
+            order.paymentStatus === "paid" ? (
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ marginTop: 12 }}
+                onClick={() => setWishPaymentStatus("unpaid")}
+                disabled={markingPaid}
+              >
+                {markingPaid ? "Updating…" : "Mark as unpaid"}
               </button>
             ) : null}
           </div>
@@ -603,15 +621,29 @@ export default function OrderDetailPage() {
                   {order.paymentStatus}
                 </p>
                 {order.paymentMethod === "wish_money" &&
+                order.status !== "cancelled" &&
                 order.paymentStatus === "unpaid" ? (
                   <button
                     type="button"
                     className="btn btn-primary"
                     style={{ marginTop: 8 }}
-                    onClick={markAsPaid}
+                    onClick={() => setWishPaymentStatus("paid")}
                     disabled={markingPaid}
                   >
                     {markingPaid ? "Marking…" : "Mark as paid"}
+                  </button>
+                ) : null}
+                {order.paymentMethod === "wish_money" &&
+                order.status !== "cancelled" &&
+                order.paymentStatus === "paid" ? (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setWishPaymentStatus("unpaid")}
+                    disabled={markingPaid}
+                  >
+                    {markingPaid ? "Updating…" : "Mark as unpaid"}
                   </button>
                 ) : null}
               </div>

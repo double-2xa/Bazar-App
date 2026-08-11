@@ -3,8 +3,6 @@ import * as Crypto from 'expo-crypto';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import * as Linking from 'expo-linking';
-import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DEFAULT_TAX_RATE, CUSTOMER_PAYMENT_METHOD_LABELS } from '@doublea/shared';
@@ -12,8 +10,6 @@ import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { cartApi, addressesApi, ordersApi } from '@/services/endpoints';
 import { getErrorMessage } from '@/services/getErrorMessage';
 import { AppButton, AppInput } from '@/components';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const CHECKOUT_PAYMENT_OPTIONS: {
   id: 'cash_on_delivery' | 'wish_money';
@@ -30,7 +26,7 @@ const CHECKOUT_PAYMENT_OPTIONS: {
   {
     id: 'wish_money',
     title: CUSTOMER_PAYMENT_METHOD_LABELS.wish_money,
-    description: 'Pay securely in the Wish Money app',
+    description: 'Pay via Wish Money — shop confirms after transfer',
     icon: 'phone-portrait-outline',
   },
 ];
@@ -82,30 +78,6 @@ export default function CheckoutScreen() {
     idempotencyKey.current = Crypto.randomUUID();
   }, [checkoutSignature]);
 
-  const goToConfirmation = async (orderNumber: string, orderTotal: number) => {
-    await queryClient.invalidateQueries({ queryKey: ['cart'] });
-    await queryClient.invalidateQueries({ queryKey: ['orders'] });
-    router.replace({
-      pathname: '/order-confirmation',
-      params: {
-        orderNumber,
-        total: String(orderTotal ?? 0),
-      },
-    });
-  };
-
-  const completeWishPayment = async (orderId: string, orderNumber: string, orderTotal: number) => {
-    const verified = await ordersApi.verifyWhishPayment(orderId);
-    if (verified.paymentStatus === 'paid' || verified.collectStatus === 'success') {
-      await goToConfirmation(orderNumber, orderTotal);
-      return;
-    }
-    Alert.alert(
-      'Payment not completed',
-      'Your Wish Money payment was not confirmed. You can open the order and try verifying again after paying.',
-    );
-  };
-
   const handlePlaceOrder = async () => {
     if (!selectedAddress) {
       Alert.alert('Address Required', 'Please select a delivery address');
@@ -127,24 +99,15 @@ export default function CheckoutScreen() {
         idempotencyKey.current,
       );
 
-      if (paymentMethod === 'wish_money') {
-        if (!order.collectUrl) {
-          throw new Error('Wish Money payment URL was not returned');
-        }
-        const returnUrl = Linking.createURL('whish-return');
-        const result = await WebBrowser.openAuthSessionAsync(order.collectUrl, returnUrl);
-        if (result.type === 'success' || result.type === 'dismiss') {
-          await completeWishPayment(order.id, order.orderNumber, order.totalAmount ?? 0);
-        } else {
-          Alert.alert(
-            'Payment cancelled',
-            'Wish Money checkout was closed before payment finished. Your cart is still available.',
-          );
-        }
-        return;
-      }
-
-      await goToConfirmation(order.orderNumber, order.totalAmount ?? 0);
+      await queryClient.invalidateQueries({ queryKey: ['cart'] });
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+      router.replace({
+        pathname: '/order-confirmation',
+        params: {
+          orderNumber: order.orderNumber,
+          total: String(order.totalAmount ?? 0),
+        },
+      });
     } catch (err: unknown) {
       Alert.alert('Error', getErrorMessage(err, 'Failed to place order'));
     } finally {
@@ -198,7 +161,7 @@ export default function CheckoutScreen() {
         })}
         {paymentMethod === 'wish_money' ? (
           <Text style={styles.wishHint}>
-            You will be redirected to Wish Money to pay. After payment you return to the app and checkout completes automatically.
+            Place your order, then send the total via Wish Money to the shop. An admin will mark the payment as paid once received.
           </Text>
         ) : null}
 
@@ -230,7 +193,7 @@ export default function CheckoutScreen() {
 
       <View style={styles.footer}>
         <AppButton
-          title={paymentMethod === 'wish_money' ? 'Pay with Wish Money' : 'Place Order'}
+          title="Place Order"
           onPress={handlePlaceOrder}
           loading={loading}
           fullWidth

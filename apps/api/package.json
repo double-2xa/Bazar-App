@@ -41,7 +41,6 @@
     "redis": "^5.8.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "whish-pay": "^1.2.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

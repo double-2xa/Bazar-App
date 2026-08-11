@@ -11,11 +11,12 @@ type NavSection = {
   items: { href: string; label: string; icon: NavIconName }[];
 };
 
-type NavIconName = 'dashboard' | 'orders' | 'delivery' | 'products' | 'categories' | 'users' | 'companies' | 'coupons' | 'reviews' | 'settings';
+type NavIconName = 'dashboard' | 'orders' | 'wish' | 'delivery' | 'products' | 'categories' | 'users' | 'companies' | 'coupons' | 'reviews' | 'settings';
 
 const ICON_PATHS: Record<NavIconName, React.ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
   orders: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" /><path d="M9 8h6M9 12h6" /></>,
+  wish: <><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18M8 14h3" /></>,
   delivery: <><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="18" cy="18" r="2" /></>,
   products: <><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Z" /><path d="m4 7 8 4 8-4M12 11v10" /></>,
   categories: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><path d="M17.5 14v7M14 17.5h7" /></>,
@@ -36,6 +37,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
       { href: '/orders', label: 'Orders', icon: 'orders' },
+      { href: '/wish-payments', label: 'Wish Money', icon: 'wish' },
       { href: '/delivery-agents', label: 'Delivery Agents', icon: 'delivery' },
     ],
   },

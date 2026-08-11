@@ -17,7 +17,6 @@ import { AdminModule } from "./admin/admin.module";
 import { BannersModule } from "./banners/banners.module";
 import { WishlistModule } from "./wishlist/wishlist.module";
 import { LocationsModule } from "./locations/locations.module";
-import { WhishModule } from "./whish/whish.module";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { validateEnvironment } from "./config/environment";
@@ -59,7 +58,6 @@ import { NotificationsModule } from "./notifications/notifications.module";
     AdminModule,
     BannersModule,
     WishlistModule,
-    WhishModule,
     HealthModule,
     MaintenanceModule,
     NotificationsModule,

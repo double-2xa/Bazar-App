@@ -3,9 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  Inject,
-  forwardRef,
-  HttpException,
   ConflictException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
@@ -26,7 +23,6 @@ import {
   STORE_ORIGIN,
 } from "@doublea/shared";
 import { NotificationsService } from "../notifications/notifications.service";
-import { WhishService } from "../whish/whish.service";
 import { Prisma } from "@prisma/client";
 import { createHash } from "crypto";
 import { createInvoicePdf } from "./invoice-pdf";
@@ -46,8 +42,6 @@ export class OrdersService {
     private prisma: PrismaService,
     private addressesService: AddressesService,
     private notifications: NotificationsService,
-    @Inject(forwardRef(() => WhishService))
-    private whishService: WhishService,
   ) {}
 
   private formatOrder(
@@ -156,28 +150,6 @@ export class OrdersService {
       if (existingOrder.idempotencyHash !== idempotencyHash) {
         throw new ConflictException("This idempotency key was already used for a different checkout");
       }
-      if (
-        existingOrder.paymentMethod === "wish_money" &&
-        existingOrder.paymentStatus === "unpaid" &&
-        existingOrder.whishExternalId
-      ) {
-        const payment = await this.whishService.createPayment({
-          amount: decimalToNumber(existingOrder.totalAmount),
-          orderNumber: existingOrder.orderNumber,
-          externalId: Number(existingOrder.whishExternalId),
-          orderId: existingOrder.id,
-        });
-        if (!payment.success || !payment.collectUrl) {
-          throw new BadRequestException(
-            payment.dialog?.message ||
-              "Could not start Wish Money payment. Please try again.",
-          );
-        }
-        return {
-          ...this.formatOrder(existingOrder as unknown as Record<string, unknown>),
-          collectUrl: payment.collectUrl,
-        };
-      }
       return this.formatOrder(existingOrder as unknown as Record<string, unknown>);
     }
 
@@ -197,14 +169,19 @@ export class OrdersService {
     assertCompanyCanShop(user);
 
     let subtotal = 0;
-    const orderItems: {
+    let orderItems: {
       productId: string;
       productName: string;
       quantity: number;
       unitPrice: number;
       selectedPriceType: "normal" | "company";
+      paymentMethod: "cash_on_delivery" | "wish_money";
       totalPrice: number;
     }[] = [];
+
+    const paymentMethod =
+      dto.paymentMethod === "wish_money" ? "wish_money" : "cash_on_delivery";
+    const isWish = paymentMethod === "wish_money";
 
     for (const item of dto.items) {
       const product = await this.prisma.product.findUnique({
@@ -243,6 +220,7 @@ export class OrdersService {
         quantity: item.quantity,
         unitPrice,
         selectedPriceType: priceType,
+        paymentMethod,
         totalPrice,
       });
     }
@@ -273,11 +251,6 @@ export class OrdersService {
     const taxable = subtotal - discountAmount;
     const taxAmount = taxable * DEFAULT_TAX_RATE;
     const totalAmount = taxable + deliveryFee + taxAmount;
-    const paymentMethod = dto.paymentMethod || "cash_on_delivery";
-    const isWish = paymentMethod === "wish_money";
-    const whishExternalId = isWish
-      ? String(this.whishService.generateExternalId())
-      : null;
 
     let order: Awaited<ReturnType<typeof this.findIdempotentOrder>> = null;
     let createdNewOrder = false;
@@ -314,7 +287,6 @@ export class OrdersService {
                 idempotencyHash,
                 paymentMethod,
                 paymentStatus: "unpaid",
-                whishExternalId,
                 subtotal,
                 deliveryFee,
                 discountAmount,
@@ -326,7 +298,7 @@ export class OrdersService {
                   create: {
                     status: "pending",
                     note: isWish
-                      ? "Order placed — awaiting Wish Money payment"
+                      ? "Order placed — awaiting Wish Money confirmation"
                       : "Order placed",
                     changedByUserId: userId,
                   },
@@ -341,15 +313,12 @@ export class OrdersService {
               },
             });
 
-            // Wish: keep cart until payment is confirmed
-            if (!isWish) {
-              await tx.cartItem.deleteMany({
-                where: {
-                  cart: { userId },
-                  productId: { in: orderItems.map((i) => i.productId) },
-                },
-              });
-            }
+            await tx.cartItem.deleteMany({
+              where: {
+                cart: { userId },
+                productId: { in: orderItems.map((i) => i.productId) },
+              },
+            });
 
             return created;
           },
@@ -394,46 +363,6 @@ export class OrdersService {
       );
     }
 
-    if (isWish) {
-      const externalId = order.whishExternalId || whishExternalId;
-      if (!externalId) {
-        throw new BadRequestException("Wish Money payment session missing");
-      }
-      try {
-        const payment = await this.whishService.createPayment({
-          amount: decimalToNumber(order.totalAmount),
-          orderNumber: order.orderNumber,
-          externalId: Number(externalId),
-          orderId: order.id,
-        });
-
-        if (!payment.success || !payment.collectUrl) {
-          if (createdNewOrder) {
-            await this.rollbackUnpaidWishOrder(order.id, orderItems);
-          }
-          throw new BadRequestException(
-            payment.dialog?.message ||
-              "Could not start Wish Money payment. Please try again.",
-          );
-        }
-
-        return {
-          ...this.formatOrder(order as unknown as Record<string, unknown>),
-          collectUrl: payment.collectUrl,
-        };
-      } catch (err) {
-        if (err instanceof HttpException) throw err;
-        if (createdNewOrder) {
-          await this.rollbackUnpaidWishOrder(order.id, orderItems);
-        }
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Wish Money payment failed to start";
-        throw new BadRequestException(message);
-      }
-    }
-
     if (createdNewOrder) {
       try {
         await this.notifications.notifyDeliveryAgentsNewOrder(order);
@@ -443,126 +372,6 @@ export class OrdersService {
     }
 
     return this.formatOrder(order as unknown as Record<string, unknown>);
-  }
-
-  private async rollbackUnpaidWishOrder(
-    orderId: string,
-    orderItems: { productId: string; quantity: number }[],
-  ) {
-    await this.prisma.$transaction(async (tx) => {
-      for (const item of orderItems) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stockQuantity: { increment: item.quantity },
-            soldCount: { decrement: item.quantity },
-          },
-        });
-      }
-      await tx.order.delete({ where: { id: orderId } });
-    });
-  }
-
-  async confirmWhishPaymentByExternalId(externalId: string) {
-    const order = await this.prisma.order.findFirst({
-      where: { whishExternalId: externalId, paymentMethod: "wish_money" },
-      include: { items: true },
-    });
-    if (!order) return null;
-    if (order.paymentStatus === "paid") {
-      return this.fetchOrderDetail(order.id);
-    }
-
-    const status = await this.whishService.getPaymentStatus(Number(externalId));
-    if (status.collectStatus !== "success") {
-      return this.fetchOrderDetail(order.id);
-    }
-
-    return this.markWishOrderPaid(order.id, order.userId, status.transactionId);
-  }
-
-  async verifyWhishPayment(userId: string, orderId: string) {
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId },
-    });
-    if (!order) throw new NotFoundException("Order not found");
-    if (order.paymentMethod !== "wish_money") {
-      throw new BadRequestException("Order is not a Wish Money payment");
-    }
-    if (!order.whishExternalId) {
-      throw new BadRequestException("Wish Money payment session missing");
-    }
-    if (order.paymentStatus === "paid") {
-      return {
-        ...((await this.fetchOrderDetail(orderId)) as Record<string, unknown>),
-        collectStatus: "success" as const,
-      };
-    }
-
-    const status = await this.whishService.getPaymentStatus(
-      Number(order.whishExternalId),
-    );
-
-    if (status.collectStatus === "success") {
-      const paid = await this.markWishOrderPaid(
-        order.id,
-        order.userId,
-        status.transactionId,
-      );
-      return { ...paid, collectStatus: "success" as const };
-    }
-
-    return {
-      ...((await this.fetchOrderDetail(orderId)) as Record<string, unknown>),
-      collectStatus: status.collectStatus,
-    };
-  }
-
-  private async markWishOrderPaid(
-    orderId: string,
-    userId: string,
-    transactionId?: string,
-  ) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
-    if (!order) throw new NotFoundException("Order not found");
-    if (order.paymentStatus === "paid") {
-      return this.fetchOrderDetail(orderId);
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          paymentStatus: "paid",
-          whishTransactionId: transactionId || order.whishTransactionId,
-          statusHistory: {
-            create: {
-              status: order.status,
-              note: "Wish Money payment confirmed",
-              changedByUserId: userId,
-            },
-          },
-        },
-      });
-
-      await tx.cartItem.deleteMany({
-        where: {
-          cart: { userId },
-          productId: { in: order.items.map((i) => i.productId) },
-        },
-      });
-    });
-
-    try {
-      await this.notifications.notifyDeliveryAgentsNewOrder(order);
-    } catch {
-      /* ignore */
-    }
-
-    return this.fetchOrderDetail(orderId);
   }
 
   async getMyOrders(userId: string, page = 1, limit = 20) {
@@ -842,18 +651,29 @@ export class OrdersService {
     limit?: number;
     status?: string;
     scope?: "active" | "archive";
+    paymentMethod?: string;
+    paymentStatus?: string;
   }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
     const terminalStatuses = ["delivered", "cancelled"] as const;
-    const where: Prisma.OrderWhereInput = query.status
-      ? { status: query.status as never }
-      : query.scope === "archive"
-        ? { status: { in: [...terminalStatuses] } }
-        : query.scope === "active"
-          ? { status: { notIn: [...terminalStatuses] } }
-          : {};
+    const where: Prisma.OrderWhereInput = {};
+
+    if (query.status) {
+      where.status = query.status as never;
+    } else if (query.scope === "archive") {
+      where.status = { in: [...terminalStatuses] };
+    } else if (query.scope === "active") {
+      where.status = { notIn: [...terminalStatuses] };
+    }
+
+    if (query.paymentMethod) {
+      where.paymentMethod = query.paymentMethod as never;
+    }
+    if (query.paymentStatus) {
+      where.paymentStatus = query.paymentStatus as never;
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.order.findMany({

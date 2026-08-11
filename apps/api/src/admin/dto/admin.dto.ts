@@ -20,6 +20,14 @@ export class AdminOrdersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(['active', 'archive'])
   scope?: 'active' | 'archive';
+
+  @IsOptional()
+  @IsIn(['cash_on_delivery', 'wish_money', 'card'])
+  paymentMethod?: 'cash_on_delivery' | 'wish_money' | 'card';
+
+  @IsOptional()
+  @IsIn(['unpaid', 'paid', 'refunded'])
+  paymentStatus?: 'unpaid' | 'paid' | 'refunded';
 }
 
 export class CreateAdminUserDto {

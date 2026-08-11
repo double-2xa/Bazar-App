@@ -312,19 +312,22 @@ model Order {
 }
 
 model OrderItem {
-  id                String    @id @default(uuid())
+  id                String        @id @default(uuid())
   orderId           String
   productId         String
   productName       String
   quantity          Int
-  unitPrice         Decimal   @db.Decimal(10, 2)
-  selectedPriceType PriceType @default(normal)
-  totalPrice        Decimal   @db.Decimal(10, 2)
-  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product           Product   @relation(fields: [productId], references: [id])
+  unitPrice         Decimal       @db.Decimal(10, 2)
+  selectedPriceType PriceType     @default(normal)
+  /// Snapshot of the order payment method at checkout
+  paymentMethod     PaymentMethod @default(cash_on_delivery)
+  totalPrice        Decimal       @db.Decimal(10, 2)
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product       @relation(fields: [productId], references: [id])
 
   @@index([orderId])
   @@index([productId])
+  @@index([paymentMethod])
 }
 
 model OrderStatusHistory {
