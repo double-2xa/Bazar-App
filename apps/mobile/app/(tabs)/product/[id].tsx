@@ -22,16 +22,19 @@ import {
   Badge,
   LoadingSkeleton,
 } from '@/components';
-import { cartApi } from '@/services/endpoints';
 import { useAppLayoutWidth } from '@/layout/webLayout';
+import { useAddToCart } from '@/hooks/useAddToCart';
+import type { GestureResponderEvent } from 'react-native';
 
 export default function ProductDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const layoutWidth = useAppLayoutWidth();
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
-  const { user, showCompanyPrice, setShowCompanyPrice, isAuthenticated, addToGuestCart } = useAuthStore();
+  const { user, showCompanyPrice, setShowCompanyPrice } = useAuthStore();
   const { isWishlisted, toggleWishlist } = useWishlist();
+  const { addToCart } = useAddToCart();
+  const [adding, setAdding] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', id],
@@ -51,15 +54,19 @@ export default function ProductDetailsScreen() {
   const originalPrice = useCompanyPrice ? product?.normalPrice : undefined;
   const wishlisted = product ? isWishlisted(product.id) : false;
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (event?: GestureResponderEvent, openCart = false) => {
     if (!product) return;
     const priceType = useCompanyPrice ? 'company' : 'normal';
-    if (isAuthenticated) {
-      await cartApi.addItem(product.id, quantity, priceType);
-    } else {
-      addToGuestCart(product, quantity, priceType);
+    setAdding(true);
+    try {
+      const added = await addToCart(product, quantity, priceType, event ? {
+        x: event.nativeEvent.pageX,
+        y: event.nativeEvent.pageY,
+      } : undefined);
+      if (added && openCart) router.push('/(tabs)/cart');
+    } finally {
+      setAdding(false);
     }
-    router.push('/(tabs)/cart');
   };
 
   if (isLoading || !product) {
@@ -146,13 +153,19 @@ export default function ProductDetailsScreen() {
         </View>
 
         <View style={styles.actions}>
-          <AppButton title="Add to Cart" onPress={handleAddToCart} style={{ flex: 1 }} disabled={product.stockQuantity === 0} />
+          <AppButton
+            title="Add to Cart"
+            onPress={(event) => handleAddToCart(event)}
+            loading={adding}
+            style={{ flex: 1 }}
+            disabled={product.stockQuantity === 0}
+          />
           <AppButton
             title="Buy Now"
             variant="secondary"
-            onPress={handleAddToCart}
+            onPress={(event) => handleAddToCart(event, true)}
             style={{ flex: 1 }}
-            disabled={product.stockQuantity === 0}
+            disabled={product.stockQuantity === 0 || adding}
           />
         </View>
 

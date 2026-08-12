@@ -7,6 +7,7 @@ import { WebAppFrame } from '@/components/WebAppFrame';
 import { useAuthStore } from '@/store/authStore';
 import { colors } from '@/theme';
 import { PushNotificationManager } from '@/components/PushNotificationManager';
+import { CartAddFeedback } from '@/components/CartAddFeedback';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
@@ -39,7 +40,6 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="(delivery)" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false, presentation: 'modal' }} />
-            <Stack.Screen name="product/[id]" options={{ title: 'Product Details' }} />
             <Stack.Screen name="category/[slug]" options={{ title: 'Products' }} />
             <Stack.Screen name="checkout" options={{ title: 'Checkout' }} />
             <Stack.Screen name="order-confirmation" options={{ headerShown: false }} />
@@ -52,6 +52,7 @@ export default function RootLayout() {
             <Stack.Screen name="delivery-order/[id]" options={{ title: 'Delivery Details' }} />
             <Stack.Screen name="delivery-completed" options={{ headerShown: false }} />
           </Stack>
+          <CartAddFeedback />
         </QueryClientProvider>
       </WebAppFrame>
     </GestureHandlerRootView>

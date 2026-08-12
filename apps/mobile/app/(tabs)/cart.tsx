@@ -20,12 +20,14 @@ export default function CartScreen() {
   const updateMutation = useMutation({
     mutationFn: ({ id, quantity }: { id: string; quantity: number }) =>
       cartApi.updateItem(id, quantity),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
+    onSuccess: (updatedCart) => queryClient.setQueryData(['cart'], updatedCart),
+    onError: () => Alert.alert('Cart', 'Could not update this item. Please try again.'),
   });
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => cartApi.removeItem(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
+    onSuccess: (updatedCart) => queryClient.setQueryData(['cart'], updatedCart),
+    onError: () => Alert.alert('Cart', 'Could not remove this item. Please try again.'),
   });
 
   const items = isAuthenticated

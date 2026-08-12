@@ -62,7 +62,7 @@ export default function CategoryScreen() {
             <ProductCard
               product={item}
               onPress={() => router.push(`/product/${item.id}`)}
-              onAddToCart={() => addToCart(item)}
+              onAddToCart={(origin) => addToCart(item, 1, undefined, origin)}
             />
           )}
         />

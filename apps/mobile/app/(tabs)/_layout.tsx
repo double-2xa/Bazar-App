@@ -52,9 +52,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Search',
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size} color={color} />,
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="product/[id]"
+        options={{
+          href: null,
+          title: 'Product Details',
         }}
       />
       <Tabs.Screen

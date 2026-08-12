@@ -6,12 +6,13 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  GestureResponderEvent,
 } from 'react-native';
 import { colors, borderRadius, typography } from '../theme';
 
 interface AppButtonProps {
   title: string;
-  onPress: () => void;
+  onPress: (event: GestureResponderEvent) => void;
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;

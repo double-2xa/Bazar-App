@@ -5,10 +5,12 @@ import type { Product, PriceType } from '@doublea/shared';
 import { useAuthStore } from '@/store/authStore';
 import { cartApi } from '@/services/endpoints';
 import { hapticSuccess, hapticLight } from '@/utils/haptics';
+import { useCartFeedbackStore, type CartFeedbackOrigin } from '@/store/cartFeedbackStore';
 
 export function useAddToCart() {
   const { isAuthenticated, user, showCompanyPrice, addToGuestCart } = useAuthStore();
   const queryClient = useQueryClient();
+  const showAdded = useCartFeedbackStore((state) => state.showAdded);
 
   const getPriceType = useCallback(
     (override?: PriceType): PriceType => {
@@ -21,17 +23,29 @@ export function useAddToCart() {
   );
 
   const addToCart = useCallback(
-    async (product: Product, quantity = 1, priceType?: PriceType) => {
+    async (
+      product: Product,
+      quantity = 1,
+      priceType?: PriceType,
+      origin?: CartFeedbackOrigin,
+    ) => {
       const selectedPriceType = getPriceType(priceType);
       await hapticLight();
 
       try {
         if (isAuthenticated) {
-          await cartApi.addItem(product.id, quantity, selectedPriceType);
-          await queryClient.invalidateQueries({ queryKey: ['cart'] });
+          await queryClient.cancelQueries({ queryKey: ['cart'] });
+          const updatedCart = await cartApi.addItem(product.id, quantity, selectedPriceType);
+          queryClient.setQueryData(['cart'], updatedCart);
         } else {
           addToGuestCart(product, quantity, selectedPriceType);
         }
+        showAdded({
+          productName: product.name,
+          imageUrl: product.imageUrl || product.images?.[0]?.imageUrl,
+          quantity,
+          origin,
+        });
         await hapticSuccess();
         return true;
       } catch (err: unknown) {
@@ -42,7 +56,7 @@ export function useAddToCart() {
         return false;
       }
     },
-    [isAuthenticated, getPriceType, addToGuestCart, queryClient],
+    [isAuthenticated, getPriceType, addToGuestCart, queryClient, showAdded],
   );
 
   return { addToCart, getPriceType };

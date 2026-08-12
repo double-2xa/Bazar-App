@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  type GestureResponderEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Product } from '@doublea/shared';
@@ -18,14 +20,15 @@ import { useProductCardWidth } from '@/layout/webLayout';
 interface ProductCardProps {
   product: Product;
   onPress: () => void;
-  onAddToCart?: () => void;
+  onAddToCart?: (origin?: { x: number; y: number }) => Promise<boolean> | void;
 }
 
-export function ProductCard({ product, onPress }: ProductCardProps) {
+export function ProductCard({ product, onPress, onAddToCart }: ProductCardProps) {
   const cardWidth = useProductCardWidth();
   const { user, showCompanyPrice } = useAuthStore();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const wishlisted = isWishlisted(product.id);
+  const [adding, setAdding] = useState(false);
 
   const isCompany =
     user?.role === 'company' && user.companyProfile?.status === 'approved' && showCompanyPrice;
@@ -74,6 +77,33 @@ export function ProductCard({ product, onPress }: ProductCardProps) {
         </View>
         <View style={styles.footer}>
           <PriceDisplay price={price} originalPrice={originalPrice} size="sm" />
+          {onAddToCart ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${product.name} to cart`}
+              disabled={product.stockQuantity <= 0 || adding}
+              style={[
+                styles.addButton,
+                (product.stockQuantity <= 0 || adding) && styles.addButtonDisabled,
+              ]}
+              hitSlop={8}
+              onPress={async (event: GestureResponderEvent) => {
+                event.stopPropagation?.();
+                setAdding(true);
+                try {
+                  await onAddToCart({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+                } finally {
+                  setAdding(false);
+                }
+              }}
+            >
+              {adding ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="cart-outline" size={17} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -106,4 +136,13 @@ const styles = StyleSheet.create({
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   rating: { ...typography.caption, color: colors.mutedText },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs },
+  addButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButtonDisabled: { opacity: 0.45 },
 });
