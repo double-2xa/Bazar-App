@@ -57,6 +57,7 @@ async function submitCompanyRegistration(payload: Record<string, string>) {
 }
 
 export default function RegisterScreen() {
+  const googleAuthEnabled = Boolean(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim());
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -223,7 +224,7 @@ export default function RegisterScreen() {
           size="lg"
         />
 
-        {!isCompany ? (
+        {!isCompany && googleAuthEnabled ? (
           <>
             <View style={styles.dividerRow}>
               <View style={styles.divider} />

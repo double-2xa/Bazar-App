@@ -17,7 +17,7 @@ export function WebAppFrame({ children }: { children: React.ReactNode }) {
   const isPhone = width < WEB_PHONE_BREAKPOINT;
 
   const shellStyle = useMemo(
-    (): ViewStyle[] => [styles.shell, !isPhone && styles.shellWide],
+    (): ViewStyle[] => (isPhone ? [styles.shell] : [styles.shell, styles.shellWide]),
     [isPhone],
   );
 

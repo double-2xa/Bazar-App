@@ -11,6 +11,7 @@ import { AppButton, AppInput } from '@/components';
 import { routeAfterAuth } from '@/utils/routeAfterAuth';
 
 export default function LoginScreen() {
+  const googleAuthEnabled = Boolean(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim());
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const login = useAuthStore((s) => s.login);
@@ -75,20 +76,24 @@ export default function LoginScreen() {
 
         <AppButton title="Sign In" onPress={handleSubmit(onSubmit)} loading={loading} fullWidth size="lg" />
 
-        <View style={styles.dividerRow}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.divider} />
-        </View>
+        {googleAuthEnabled ? (
+          <>
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.divider} />
+            </View>
 
-        <AppButton
-          title="Continue with Google"
-          onPress={onGoogle}
-          loading={googleLoading}
-          fullWidth
-          size="lg"
-          variant="outline"
-        />
+            <AppButton
+              title="Continue with Google"
+              onPress={onGoogle}
+              loading={googleLoading}
+              fullWidth
+              size="lg"
+              variant="outline"
+            />
+          </>
+        ) : null}
 
         <Text style={styles.footer}>
           Don't have an account?{' '}

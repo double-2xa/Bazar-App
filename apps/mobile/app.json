@@ -3,10 +3,12 @@
     "name": "Nice Price Bazar",
     "slug": "nice-price-bazar",
     "version": "1.0.0",
+    "icon": "./assets/nice-price-bazar-icon-v2.png",
     "orientation": "portrait",
     "scheme": "nicepricebazar",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFF8E7"
     },
@@ -17,11 +19,17 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.nicepricebazar.app"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.nicepricebazar.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Nice Price Bazar uses your location to help you select an accurate delivery address."
+      }
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/nice-price-bazar-icon-v2.png",
         "backgroundColor": "#C8102E"
       },
       "package": "com.nicepricebazar.app"
@@ -30,8 +38,7 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-notifications",
-      "@react-native-google-signin/google-signin"
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

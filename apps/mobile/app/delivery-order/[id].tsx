@@ -35,12 +35,12 @@ const PAYMENT_STATUS_VARIANT: Record<string, 'warning' | 'success' | 'danger'> =
 
 function formatAddress(order: {
   address?: {
-    street?: string;
-    building?: string;
-    city?: string;
-    district?: string;
-    governorate?: string;
-    country?: string;
+    street?: string | null;
+    building?: string | null;
+    city?: string | null;
+    district?: string | null;
+    governorate?: string | null;
+    country?: string | null;
   };
 }) {
   if (!order.address) return '';
