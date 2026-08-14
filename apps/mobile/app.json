@@ -8,7 +8,7 @@
     "scheme": "nicepricebazar",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/nice-price-bazar-icon-v2.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFF8E7"
     },
@@ -21,7 +21,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.nicepricebazar.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Nice Price Bazar uses your location to help you select an accurate delivery address."
