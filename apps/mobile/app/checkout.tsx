@@ -40,6 +40,7 @@ export default function CheckoutScreen() {
   const [paymentMethod, setPaymentMethod] = useState<'cash_on_delivery' | 'wish_money'>('cash_on_delivery');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [guest, setGuest] = useState({
     fullName: '', phone: '', email: '', district: '', city: '', street: '',
     building: '', floor: '', apartment: '', latitude: undefined as number | undefined,
@@ -47,6 +48,7 @@ export default function CheckoutScreen() {
   });
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [guestQuoteCity, setGuestQuoteCity] = useState('');
   const idempotencyKey = useRef(Crypto.randomUUID());
 
   const { data: cart } = useQuery({ queryKey: ['cart'], queryFn: cartApi.get, enabled: isAuthenticated });
@@ -59,6 +61,11 @@ export default function CheckoutScreen() {
     }
   }, [addresses, selectedAddress]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setGuestQuoteCity(guest.city.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [guest.city]);
+
   const { data: deliveryQuote, isFetching: quoteLoading } = useQuery({
     queryKey: ['delivery-quote', selectedAddress],
     queryFn: () => ordersApi.getDeliveryQuote(selectedAddress!),
@@ -66,9 +73,9 @@ export default function CheckoutScreen() {
   });
 
   const { data: guestDeliveryQuote, isFetching: guestQuoteLoading } = useQuery({
-    queryKey: ['guest-delivery-quote', guest.city, guest.latitude, guest.longitude],
-    queryFn: () => ordersApi.getGuestDeliveryQuote({ city: guest.city, latitude: guest.latitude, longitude: guest.longitude }),
-    enabled: !isAuthenticated && guest.city.trim().length > 1,
+    queryKey: ['guest-delivery-quote', guestQuoteCity, guest.latitude, guest.longitude],
+    queryFn: () => ordersApi.getGuestDeliveryQuote({ city: guestQuoteCity, latitude: guest.latitude, longitude: guest.longitude }),
+    enabled: !isAuthenticated && guestQuoteCity.length > 1,
   });
 
   const items = isAuthenticated ? cart?.items || [] : guestCart;
@@ -96,22 +103,34 @@ export default function CheckoutScreen() {
   }, [checkoutSignature]);
 
   const handlePlaceOrder = async () => {
+    setFormError('');
     if (items.length === 0) {
+      setFormError('Your basket is empty. Please add at least one product.');
       Alert.alert('Basket Empty', 'Please add at least one product.');
       return;
     }
     if (isAuthenticated && !selectedAddress) {
+      setFormError('Please select a delivery address.');
       Alert.alert('Address Required', 'Please select a delivery address');
       return;
     }
     if (!isAuthenticated) {
       const required = [guest.fullName, guest.phone, guest.district, guest.city, guest.street];
       if (required.some((value) => !value.trim())) {
+        setFormError('Please fill in your name, WhatsApp number, district, city/town and street/landmark.');
         Alert.alert('Details Required', 'Please fill in your name, WhatsApp number, district, city/town and street/landmark.');
         return;
       }
       const digits = guest.phone.replace(/\D/g, '');
-      if (!(digits.startsWith('961') || digits.startsWith('00961') || digits.startsWith('0')) || digits.length < 7) {
+      const localDigits = digits.startsWith('00961')
+        ? digits.slice(5)
+        : digits.startsWith('961')
+          ? digits.slice(3)
+          : digits.startsWith('0')
+            ? digits.slice(1)
+            : digits;
+      if (localDigits.length < 7 || localDigits.length > 8) {
+        setFormError('Enter a valid Lebanese phone or WhatsApp number.');
         Alert.alert('Phone Number', 'Enter a valid Lebanese phone or WhatsApp number.');
         return;
       }
@@ -158,7 +177,9 @@ export default function CheckoutScreen() {
         },
       });
     } catch (err: unknown) {
-      Alert.alert('Error', getErrorMessage(err, 'Failed to place order'));
+      const message = getErrorMessage(err, 'Failed to place order');
+      setFormError(message);
+      Alert.alert('Could not place order', message);
     } finally {
       setLoading(false);
     }
@@ -283,6 +304,12 @@ export default function CheckoutScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {formError ? (
+          <View style={styles.formError} accessibilityRole="alert">
+            <Ionicons name="alert-circle" size={18} color={colors.danger} />
+            <Text style={styles.formErrorText}>{formError}</Text>
+          </View>
+        ) : null}
         <AppButton
           title="Place Order"
           onPress={handlePlaceOrder}
@@ -350,4 +377,6 @@ const styles = StyleSheet.create({
   fieldHalf: { flex: 1 },
   optInRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.sm },
   optInText: { ...typography.bodySmall, color: colors.text, flex: 1 },
+  formError: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  formErrorText: { ...typography.bodySmall, color: colors.danger, flex: 1 },
 });

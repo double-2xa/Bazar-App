@@ -17,6 +17,7 @@ import { useCartFeedbackStore } from '@/store/cartFeedbackStore';
 
 export function CartAddFeedback() {
   const event = useCartFeedbackStore((state) => state.event);
+  const clearAdded = useCartFeedbackStore((state) => state.clearAdded);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const contentWidth = useAppLayoutWidth();
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -27,6 +28,7 @@ export function CartAddFeedback() {
   const flyScale = useRef(new Animated.Value(1)).current;
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastY = useRef(new Animated.Value(10)).current;
+  const handledEventId = useRef<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -41,7 +43,8 @@ export function CartAddFeedback() {
   }, []);
 
   useEffect(() => {
-    if (!event) return;
+    if (!event || handledEventId.current === event.id) return;
+    handledEventId.current = event.id;
 
     setVisibleEventId(event.id);
     AccessibilityInfo.announceForAccessibility(
@@ -119,9 +122,12 @@ export function CartAddFeedback() {
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
-      ]).start(() => setVisibleEventId(null));
+      ]).start(() => {
+        setVisibleEventId(null);
+        clearAdded(event.id);
+      });
     });
-  }, [contentWidth, event, flyOpacity, flyScale, reduceMotion, toastOpacity, toastY, windowHeight, windowWidth, x, y]);
+  }, [clearAdded, contentWidth, event, flyOpacity, flyScale, reduceMotion, toastOpacity, toastY, windowHeight, windowWidth, x, y]);
 
   if (!event || visibleEventId !== event.id) return null;
 

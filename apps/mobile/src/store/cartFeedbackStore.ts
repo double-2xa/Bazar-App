@@ -13,6 +13,7 @@ type CartFeedbackEvent = {
 type CartFeedbackState = {
   event: CartFeedbackEvent | null;
   showAdded: (input: Omit<CartFeedbackEvent, 'id'>) => void;
+  clearAdded: (id: number) => void;
 };
 
 let nextEventId = 0;
@@ -20,4 +21,5 @@ let nextEventId = 0;
 export const useCartFeedbackStore = create<CartFeedbackState>((set) => ({
   event: null,
   showAdded: (input) => set({ event: { ...input, id: ++nextEventId } }),
+  clearAdded: (id) => set((state) => state.event?.id === id ? { event: null } : state),
 }));

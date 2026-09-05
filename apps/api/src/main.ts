@@ -19,7 +19,12 @@ async function bootstrap() {
     origin: configuredCorsOrigins(),
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Idempotency-Key',
+      'X-Guest-Order-Token',
+    ],
     maxAge: 86400,
   });
   app.useGlobalPipes(
