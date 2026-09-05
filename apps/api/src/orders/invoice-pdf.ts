@@ -3,6 +3,8 @@ import PDFDocument = require('pdfkit');
 type InvoiceItem = {
   productName?: string;
   quantity?: number;
+  preparedQuantity?: number;
+  unavailableQuantity?: number;
   unitPrice?: number;
   totalPrice?: number;
 };
@@ -128,12 +130,18 @@ export function createInvoicePdf(order: InvoiceOrder): Promise<Buffer> {
         addItemsHeader(doc, 54);
       }
       const y = doc.y;
+      const unavailable = item.unavailableQuantity ?? 0;
+      const available = Math.max(0, (item.quantity ?? 0) - unavailable);
       const productName = item.productName || 'Product';
       doc.font('Helvetica').fontSize(9).fillColor(TEXT).text(productName, 64, y, { width: 240 });
-      const rowHeight = Math.max(22, doc.heightOfString(productName, { width: 240 }) + 10);
-      doc.text(String(item.quantity ?? 0), 325, y, { width: 45, align: 'center' });
+      const rowHeight = Math.max(unavailable > 0 ? 32 : 22, doc.heightOfString(productName, { width: 240 }) + (unavailable > 0 ? 20 : 10));
+      doc.text(unavailable > 0 ? `${available}/${item.quantity ?? 0}` : String(item.quantity ?? 0), 325, y, { width: 45, align: 'center' });
       doc.text(money(item.unitPrice), 380, y, { width: 70, align: 'right' });
       doc.font('Helvetica-Bold').text(money(item.totalPrice), 465, y, { width: 66, align: 'right' });
+      if (unavailable > 0) {
+        doc.font('Helvetica-Bold').fontSize(7).fillColor(BRAND)
+          .text(`${unavailable} unavailable — not charged`, 64, y + 12, { width: 240 });
+      }
       doc.moveTo(64, y + rowHeight - 3).lineTo(531, y + rowHeight - 3).strokeColor(BORDER).lineWidth(0.5).stroke();
       doc.y = y + rowHeight;
     }

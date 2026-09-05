@@ -265,13 +265,8 @@ export class DeliveryService {
     const order = await this.validateAgentOrder(agentId, orderId);
     assertDriverDelivered(order.status);
 
-    if (
-      !dto.agentSignatureDataUrl?.trim() ||
-      !dto.clientSignatureDataUrl?.trim()
-    ) {
-      throw new BadRequestException(
-        "Both driver and client signatures are required",
-      );
+    if (!dto.clientSignatureDataUrl?.trim()) {
+      throw new BadRequestException("Customer signature is required");
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -281,7 +276,6 @@ export class DeliveryService {
           deliveryAgentId: agentId,
           deliveredToName: dto.deliveredToName,
           deliveryNote: dto.deliveryNote,
-          agentSignatureDataUrl: dto.agentSignatureDataUrl,
           clientSignatureDataUrl: dto.clientSignatureDataUrl,
           latitude: dto.latitude,
           longitude: dto.longitude,
@@ -299,7 +293,7 @@ export class DeliveryService {
             create: {
               status: "delivered",
               note:
-                dto.deliveryNote || "Delivered successfully with signatures",
+                dto.deliveryNote || "Delivered successfully with customer signature",
               changedByUserId: agentId,
             },
           },

@@ -111,8 +111,7 @@ export const couponSchema = z.object({
 export const deliveryProofSchema = z.object({
   deliveredToName: z.string().optional(),
   deliveryNote: z.string().optional(),
-  agentSignatureDataUrl: z.string().min(1, 'Driver signature is required'),
-  clientSignatureDataUrl: z.string().min(1, 'Client signature is required'),
+  clientSignatureDataUrl: z.string().min(1, 'Customer signature is required'),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
 });

@@ -50,6 +50,12 @@ export const adminOrdersApi = {
 
   unassignAgent: (id: string) =>
     api.patch<Order>(`/admin/orders/${id}/unassign-delivery-agent`).then((r) => r.data),
+
+  prepareItemUnit: (orderId: string, itemId: string, decision: 'prepared' | 'unavailable') =>
+    api.patch<Order>(`/admin/orders/${orderId}/items/${itemId}/preparation`, { decision }).then((r) => r.data),
+
+  prepareAllItems: (orderId: string) =>
+    api.post<Order>(`/admin/orders/${orderId}/items/prepare-all`, {}).then((r) => r.data),
 };
 
 export const deliveryAgentsApi = {

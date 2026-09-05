@@ -49,10 +49,6 @@ export default function CartScreen() {
   }, 0);
 
   const handleCheckout = () => {
-    if (!isAuthenticated) {
-      router.push('/(auth)/login');
-      return;
-    }
     if (items.length === 0) return;
     router.push('/checkout');
   };
@@ -157,7 +153,7 @@ export default function CartScreen() {
         </View>
         <AppButton title="Proceed to Checkout" onPress={handleCheckout} fullWidth size="lg" />
         {!isAuthenticated ? (
-          <Text style={styles.guestNote}>Sign in required to place order</Text>
+          <Text style={styles.guestNote}>Continue as guest — no account required</Text>
         ) : null}
       </FloatingActionBar>
     </View>

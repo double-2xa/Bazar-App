@@ -42,6 +42,8 @@ export default function OrderDetailPage() {
   const [assigning, setAssigning] = useState(false);
   const [unassigning, setUnassigning] = useState(false);
   const [markingPacked, setMarkingPacked] = useState(false);
+  const [preparingItemId, setPreparingItemId] = useState("");
+  const [preparingAll, setPreparingAll] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
@@ -124,6 +126,45 @@ export default function OrderDetailPage() {
       setError(getApiErrorMessage(err, "Failed to mark packing as finished."));
     } finally {
       setMarkingPacked(false);
+    }
+  };
+
+  const markItemUnit = async (
+    itemId: string,
+    decision: "prepared" | "unavailable",
+  ) => {
+    if (!order) return;
+    setPreparingItemId(itemId);
+    setError("");
+    try {
+      const updated = await adminOrdersApi.prepareItemUnit(
+        order.id,
+        itemId,
+        decision,
+      );
+      setOrder(updated);
+      if (updated.status === "cancelled") {
+        flashSuccess("Every item was unavailable. The order was cancelled automatically.");
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to save the item decision."));
+    } finally {
+      setPreparingItemId("");
+    }
+  };
+
+  const prepareAllItems = async () => {
+    if (!order) return;
+    setPreparingAll(true);
+    setError("");
+    try {
+      const updated = await adminOrdersApi.prepareAllItems(order.id);
+      setOrder(updated);
+      flashSuccess("All remaining units are marked as prepared.");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to prepare all items."));
+    } finally {
+      setPreparingAll(false);
     }
   };
 
@@ -234,6 +275,12 @@ export default function OrderDetailPage() {
   const statusOptions = allowedStatuses(order.status);
   const canChangeStatus = statusOptions.length > 1;
   const preparing = isPreparingOrder(order.status);
+  const preparationComplete = (order.items ?? []).every(
+    (item) => item.preparedQuantity + item.unavailableQuantity === item.quantity,
+  );
+  const activePreparationIndex = (order.items ?? []).findIndex(
+    (item) => item.preparedQuantity + item.unavailableQuantity < item.quantity,
+  );
   const deliveryUnlocked = isReadyForDriverAssignment(order.status);
   const showAssignControls = canAssignDriver(order.status);
   const showUnassign = canUnassignDriver(order.status);
@@ -494,6 +541,16 @@ export default function OrderDetailPage() {
         <div className="order-section-heading">
           <span className="order-section-heading__step">Step 2</span>
           <h2>Items to prepare</h2>
+          {preparing ? (
+            <button
+              type="button"
+              className="btn btn-outline order-prepare-all"
+              disabled={preparingAll || preparationComplete || !!preparingItemId}
+              onClick={prepareAllItems}
+            >
+              {preparingAll ? "Preparing…" : "✓ Prepare all"}
+            </button>
+          ) : null}
         </div>
         <table className="table">
           <thead>
@@ -503,18 +560,46 @@ export default function OrderDetailPage() {
               <th>Unit price</th>
               <th>Price type</th>
               <th>Total</th>
+              <th>Preparation</th>
             </tr>
           </thead>
           <tbody>
-            {(order.items ?? []).map((item) => (
-              <tr key={item.id}>
+            {(order.items ?? []).map((item, index) => {
+              const decided = item.preparedQuantity + item.unavailableQuantity;
+              const complete = decided === item.quantity;
+              const locked = preparing && activePreparationIndex >= 0 && index > activePreparationIndex;
+              return (
+              <tr key={item.id} className={locked ? "order-item-locked" : ""}>
                 <td style={{ fontWeight: 500 }}>{item.productName}</td>
                 <td>{item.quantity}</td>
                 <td>${item.unitPrice.toFixed(2)}</td>
                 <td>{item.selectedPriceType}</td>
                 <td>${item.totalPrice.toFixed(2)}</td>
+                <td>
+                  <div className="order-item-preparation">
+                    <div className="order-item-units" aria-label={`${decided} of ${item.quantity} units decided`}>
+                      {Array.from({ length: item.preparedQuantity }, (_, unit) => (
+                        <span className="order-unit order-unit--prepared" key={`prepared-${unit}`} title="Prepared">✓</span>
+                      ))}
+                      {Array.from({ length: item.unavailableQuantity }, (_, unit) => (
+                        <span className="order-unit order-unit--unavailable" key={`unavailable-${unit}`} title="Unavailable — not charged">✕</span>
+                      ))}
+                      {Array.from({ length: item.quantity - decided }, (_, unit) => (
+                        <span className="order-unit order-unit--pending" key={`pending-${unit}`} title="Not decided">{decided + unit + 1}</span>
+                      ))}
+                    </div>
+                    {preparing && !complete ? (
+                      <div className="order-item-actions">
+                        <button type="button" className="order-decision order-decision--yes" title="Mark one unit prepared" aria-label={`Mark one ${item.productName} prepared`} disabled={locked || !!preparingItemId || preparingAll} onClick={() => markItemUnit(item.id, "prepared")}>✓</button>
+                        <button type="button" className="order-decision order-decision--no" title="Mark one unit unavailable" aria-label={`Mark one ${item.productName} unavailable`} disabled={locked || !!preparingItemId || preparingAll} onClick={() => markItemUnit(item.id, "unavailable")}>✕</button>
+                      </div>
+                    ) : null}
+                  </div>
+                  {item.unavailableQuantity > 0 ? <small className="order-unavailable-note">{item.unavailableQuantity} unavailable · not charged</small> : null}
+                </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
 
@@ -532,10 +617,10 @@ export default function OrderDetailPage() {
             <button
               type="button"
               className="btn btn-primary order-pack-action__btn"
-              disabled={markingPacked}
+              disabled={markingPacked || !preparationComplete}
               onClick={markPackingFinished}
             >
-              {markingPacked ? "Saving…" : "Order prepared / packed"}
+              {markingPacked ? "Saving…" : preparationComplete ? "Order prepared / packed" : "Decide every item first"}
             </button>
           </div>
         ) : (
@@ -871,36 +956,11 @@ export default function OrderDetailPage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  gridTemplateColumns: "minmax(240px, 480px)",
                   gap: 12,
                   marginTop: 12,
                 }}
               >
-                {order.deliveryProof.agentSignatureDataUrl ? (
-                  <div>
-                    <p
-                      style={{
-                        fontSize: 12,
-                        color: "var(--muted)",
-                        marginBottom: 4,
-                      }}
-                    >
-                      Driver signature
-                    </p>
-                    <img
-                      src={order.deliveryProof.agentSignatureDataUrl}
-                      alt="Driver signature"
-                      style={{
-                        width: "100%",
-                        height: 100,
-                        objectFit: "contain",
-                        background: "#fff",
-                        border: "1px solid var(--border)",
-                        borderRadius: 8,
-                      }}
-                    />
-                  </div>
-                ) : null}
                 {order.deliveryProof.clientSignatureDataUrl ? (
                   <div>
                     <p
@@ -910,11 +970,11 @@ export default function OrderDetailPage() {
                         marginBottom: 4,
                       }}
                     >
-                      Client signature
+                      Customer signature
                     </p>
                     <img
                       src={order.deliveryProof.clientSignatureDataUrl}
-                      alt="Client signature"
+                      alt="Customer signature"
                       style={{
                         width: "100%",
                         height: 100,

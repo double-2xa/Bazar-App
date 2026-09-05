@@ -265,16 +265,30 @@ export class AddressesService {
       };
     }
 
-    if (!input.governorate?.trim() || !input.district?.trim() || !input.city?.trim()) {
+    if (!input.district?.trim() || !input.city?.trim()) {
       throw new BadRequestException(
-        'Select a Lebanon city (settlementId) or provide governorate, district, and city',
+        'Select a Lebanon city (settlementId) or provide district and city',
       );
+    }
+
+    const matched = this.locations.findByName({
+      name: input.city,
+      governorate: input.governorate,
+      district: input.district,
+    });
+    if (matched) {
+      return {
+        settlementId: matched.id,
+        city: matched.name,
+        governorate: matched.governorate,
+        district: matched.district,
+      };
     }
 
     return {
       settlementId: null as string | null,
       city: input.city.trim(),
-      governorate: input.governorate.trim(),
+      governorate: input.governorate?.trim() || null,
       district: input.district.trim(),
     };
   }

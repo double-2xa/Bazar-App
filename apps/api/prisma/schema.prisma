@@ -59,6 +59,8 @@ model User {
   passwordHash String?
   googleId     String?  @unique
   authProvider String   @default("local")
+  /// SHA-256 of the device-held guest token; only populated for anonymous checkout identities.
+  guestAccessTokenHash String? @unique
   fullName     String
   phone        String?
   role         UserRole @default(normal_user)
@@ -292,6 +294,10 @@ model Order {
   taxAmount       Decimal       @db.Decimal(10, 2)
   totalAmount     Decimal       @db.Decimal(10, 2)
   customerNote    String?
+  isGuest         Boolean       @default(false)
+  guestEmail      String?
+  guestWhatsappOptIn Boolean    @default(false)
+  guestInvoiceTokenHash String?  @unique
   idempotencyKey  String?
   idempotencyHash String?
   createdAt       DateTime      @default(now())
@@ -309,6 +315,7 @@ model Order {
   @@index([userId, createdAt])
   @@index([deliveryAgentId, status, createdAt])
   @@index([paymentMethod, paymentStatus, status])
+  @@index([isGuest, createdAt])
 }
 
 model OrderItem {
@@ -316,7 +323,10 @@ model OrderItem {
   orderId           String
   productId         String
   productName       String
+  position          Int           @default(0)
   quantity          Int
+  preparedQuantity  Int           @default(0)
+  unavailableQuantity Int         @default(0)
   unitPrice         Decimal       @db.Decimal(10, 2)
   selectedPriceType PriceType     @default(normal)
   /// Snapshot of the order payment method at checkout
@@ -326,6 +336,7 @@ model OrderItem {
   product           Product       @relation(fields: [productId], references: [id])
 
   @@index([orderId])
+  @@index([orderId, position])
   @@index([productId])
   @@index([paymentMethod])
 }

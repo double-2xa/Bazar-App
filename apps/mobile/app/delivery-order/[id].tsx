@@ -56,7 +56,6 @@ export default function DeliveryOrderDetailsScreen() {
   const [deliveredToName, setDeliveredToName] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
   const [rejectReason, setRejectReason] = useState('');
-  const [agentSignature, setAgentSignature] = useState<string | null>(null);
   const [clientSignature, setClientSignature] = useState<string | null>(null);
 
   useRoleGuard({ allowed: 'delivery_agent' });
@@ -115,7 +114,6 @@ export default function DeliveryOrderDetailsScreen() {
       deliveryApi.markDelivered(id!, {
         deliveredToName: deliveredToName.trim() || undefined,
         deliveryNote: deliveryNote.trim() || undefined,
-        agentSignatureDataUrl: agentSignature!,
         clientSignatureDataUrl: clientSignature!,
       }),
     onSuccess: async () => {
@@ -127,8 +125,8 @@ export default function DeliveryOrderDetailsScreen() {
   });
 
   const confirmDeliver = () => {
-    if (!agentSignature || !clientSignature) {
-      Alert.alert('Signatures required', 'Both driver and client must sign before completing delivery.');
+    if (!clientSignature) {
+      Alert.alert('Signature required', 'The customer must sign before completing delivery.');
       return;
     }
     deliveredMutation.mutate();
@@ -308,9 +306,9 @@ export default function DeliveryOrderDetailsScreen() {
 
         {order.status === 'on_the_way' && (
           <GlassCard style={styles.cardGap}>
-            <Text style={styles.cardTitle}>Delivery signatures</Text>
+            <Text style={styles.cardTitle}>Customer signature</Text>
             <Text style={styles.muted}>
-              Both the driver and the client must sign to confirm delivery.
+              Ask the customer or recipient to sign to confirm delivery.
             </Text>
             <AppInput
               label="Delivered to (optional)"
@@ -325,8 +323,7 @@ export default function DeliveryOrderDetailsScreen() {
               multiline
               placeholder="e.g. Left with reception"
             />
-            <SignaturePad label="Driver signature" onChange={setAgentSignature} />
-            <SignaturePad label="Client signature" onChange={setClientSignature} />
+            <SignaturePad label="Customer signature" onChange={setClientSignature} />
           </GlassCard>
         )}
 
@@ -339,15 +336,9 @@ export default function DeliveryOrderDetailsScreen() {
             {order.deliveryProof.deliveryNote ? (
               <Text style={styles.muted}>{order.deliveryProof.deliveryNote}</Text>
             ) : null}
-            {order.deliveryProof.agentSignatureDataUrl ? (
-              <View style={styles.sigBlock}>
-                <Text style={styles.sigLabel}>Driver signature</Text>
-                <SignatureImage uri={order.deliveryProof.agentSignatureDataUrl} />
-              </View>
-            ) : null}
             {order.deliveryProof.clientSignatureDataUrl ? (
               <View style={styles.sigBlock}>
-                <Text style={styles.sigLabel}>Client signature</Text>
+                <Text style={styles.sigLabel}>Customer signature</Text>
                 <SignatureImage uri={order.deliveryProof.clientSignatureDataUrl} />
               </View>
             ) : null}
@@ -410,7 +401,6 @@ export default function DeliveryOrderDetailsScreen() {
             loading={deliveredMutation.isPending}
             disabled={
               (isActionPending && !deliveredMutation.isPending) ||
-              !agentSignature ||
               !clientSignature
             }
             fullWidth

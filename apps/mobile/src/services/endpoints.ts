@@ -14,7 +14,6 @@ import type {
 export type DeliveryProofInput = {
   deliveredToName?: string;
   deliveryNote?: string;
-  agentSignatureDataUrl: string;
   clientSignatureDataUrl: string;
   latitude?: number;
   longitude?: number;
@@ -140,6 +139,35 @@ export const ordersApi = {
         method: string;
       }>("/orders/delivery-quote", { params: { addressId } })
       .then((r) => r.data),
+  createGuest: async (data: Record<string, unknown>, idempotencyKey: string) => {
+    const { getGuestOrderToken } = await import('./guestOrders');
+    const token = await getGuestOrderToken();
+    return api.post<Order>('/orders/guest', data, {
+      headers: { 'Idempotency-Key': idempotencyKey, 'X-Guest-Order-Token': token },
+    }).then((r) => r.data);
+  },
+  getGuestOrders: async (page = 1, limit = 20) => {
+    const { getGuestOrderToken } = await import('./guestOrders');
+    const token = await getGuestOrderToken();
+    return api.get<{ data: Order[]; total: number; page: number; limit: number; totalPages: number }>(
+      '/orders/guest/my-orders',
+      { params: { page, limit }, headers: { 'X-Guest-Order-Token': token } },
+    ).then((r) => r.data);
+  },
+  getGuestById: async (id: string) => {
+    const { getGuestOrderToken } = await import('./guestOrders');
+    const token = await getGuestOrderToken();
+    return api.get<Order>(`/orders/guest/${id}`, { headers: { 'X-Guest-Order-Token': token } }).then((r) => r.data);
+  },
+  cancelGuest: async (id: string) => {
+    const { getGuestOrderToken } = await import('./guestOrders');
+    const token = await getGuestOrderToken();
+    return api.patch(`/orders/guest/${id}/cancel`, undefined, { headers: { 'X-Guest-Order-Token': token } }).then((r) => r.data);
+  },
+  getGuestDeliveryQuote: (data: { city: string; latitude?: number; longitude?: number }) =>
+    api.post<{ deliveryFee: number; distanceKm: number | null; placeName: string | null; method: string }>(
+      '/orders/guest/delivery-quote', data,
+    ).then((r) => r.data),
 };
 
 export const wishlistApi = {

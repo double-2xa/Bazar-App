@@ -14,33 +14,21 @@ export default function OrdersScreen() {
   const { isAuthenticated } = useAuthStore();
 
   const { data, isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ['orders'],
-    queryFn: ({ pageParam }) => ordersApi.getMyOrders(pageParam, 20),
+    queryKey: ['orders', isAuthenticated ? 'account' : 'guest'],
+    queryFn: ({ pageParam }) => isAuthenticated
+      ? ordersApi.getMyOrders(pageParam, 20)
+      : ordersApi.getGuestOrders(pageParam, 20),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
-    enabled: isAuthenticated,
     staleTime: 0,
   });
   const orders = data?.pages.flatMap((page) => page.data) ?? [];
 
   useFocusEffect(
     useCallback(() => {
-      if (isAuthenticated) refetch();
+      refetch();
     }, [isAuthenticated, refetch]),
   );
-
-  if (!isAuthenticated) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <EmptyState
-          icon="receipt-outline"
-          title="Sign in to view orders"
-          subtitle="Track your orders and delivery status"
-          action={<AppButton title="Sign In" onPress={() => router.push('/(auth)/login')} />}
-        />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,7 +51,10 @@ export default function OrdersScreen() {
             <EmptyState
               icon="receipt-outline"
               title="No orders yet"
-              subtitle="Your order history will appear here. Pull down to refresh after placing an order."
+              subtitle={isAuthenticated
+                ? 'Your order history will appear here. Pull down to refresh after placing an order.'
+                : 'Guest orders placed on this device will appear here.'}
+              action={!isAuthenticated ? <AppButton title="Sign In" variant="outline" onPress={() => router.push('/(auth)/login')} /> : undefined}
             />
           ) : null
         }

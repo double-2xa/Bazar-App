@@ -138,7 +138,10 @@ export interface OrderItem {
   id: string;
   productId: string;
   productName: string;
+  position: number;
   quantity: number;
+  preparedQuantity: number;
+  unavailableQuantity: number;
   unitPrice: number;
   selectedPriceType: PriceType;
   /** Payment method chosen at checkout (same for all items on an order) */

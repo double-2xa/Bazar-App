@@ -23,6 +23,7 @@ import {
   UpdateOrderStatusDto,
   AssignDeliveryAgentDto,
   UpdatePaymentStatusDto,
+  PrepareOrderItemDto,
 } from "../orders/dto/order.dto";
 import { Throttle } from "@nestjs/throttler";
 import { Roles } from "../common/decorators/roles.decorator";
@@ -139,6 +140,24 @@ export class AdminController {
     return this.ordersService.updateStatus(id, dto.status, adminId, dto.note, {
       validateAdmin: true,
     });
+  }
+
+  @Patch("orders/:id/items/:itemId/preparation")
+  prepareOrderItem(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("itemId", ParseUUIDPipe) itemId: string,
+    @Body() dto: PrepareOrderItemDto,
+    @CurrentUser("sub") adminId: string,
+  ) {
+    return this.ordersService.recordItemPreparation(id, itemId, dto.decision, adminId);
+  }
+
+  @Post("orders/:id/items/prepare-all")
+  prepareAllOrderItems(
+    @Param("id", ParseUUIDPipe) id: string,
+    @CurrentUser("sub") adminId: string,
+  ) {
+    return this.ordersService.prepareAllItems(id, adminId);
   }
 
   @Patch("orders/:id/payment-status")

@@ -29,7 +29,7 @@ export function useAddToCart() {
       priceType?: PriceType,
       origin?: CartFeedbackOrigin,
     ) => {
-      const selectedPriceType = getPriceType(priceType);
+      const selectedPriceType = isAuthenticated ? getPriceType(priceType) : 'normal';
       await hapticLight();
 
       try {

@@ -10,11 +10,7 @@ export class DeliveryProofDto {
   deliveryNote?: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Driver signature is required' })
-  agentSignatureDataUrl!: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'Client signature is required' })
+  @IsNotEmpty({ message: 'Customer signature is required' })
   clientSignatureDataUrl!: string;
 
   @IsOptional()

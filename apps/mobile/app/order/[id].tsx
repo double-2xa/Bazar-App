@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { OrderStatus } from '@doublea/shared';
 import { colors, spacing, typography } from '@/theme';
 import { ordersApi } from '@/services/endpoints';
+import { useAuthStore } from '@/store/authStore';
 import { getErrorMessage } from '@/services/getErrorMessage';
 import {
   canCustomerCancelOrder,
@@ -49,13 +50,14 @@ function formatAddressLine(order: {
 }
 
 export default function OrderDetailsScreen() {
+  const { isAuthenticated } = useAuthStore();
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [invoiceDownloading, setInvoiceDownloading] = useState(false);
 
   const { data: order, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['order', id],
-    queryFn: () => ordersApi.getById(id!),
+    queryKey: ['order', isAuthenticated ? 'account' : 'guest', id],
+    queryFn: () => isAuthenticated ? ordersApi.getById(id!) : ordersApi.getGuestById(id!),
     enabled: !!id,
     staleTime: 0,
   });
@@ -67,7 +69,7 @@ export default function OrderDetailsScreen() {
   );
 
   const cancelMutation = useMutation({
-    mutationFn: () => ordersApi.cancel(id!),
+    mutationFn: () => isAuthenticated ? ordersApi.cancel(id!) : ordersApi.cancelGuest(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', id] });
@@ -285,9 +287,14 @@ export default function OrderDetailsScreen() {
         <Text style={styles.cardTitle}>Items</Text>
         {order.items?.map((item) => (
           <View key={item.id} style={styles.itemRow}>
-            <Text style={styles.itemName}>
-              {item.productName} x{item.quantity}
-            </Text>
+            <View style={styles.itemDetails}>
+              <Text style={styles.itemName}>{item.productName} x{item.quantity}</Text>
+              {item.unavailableQuantity > 0 ? (
+                <Text style={styles.unavailableItem}>
+                  {item.unavailableQuantity} unavailable · not charged
+                </Text>
+              ) : null}
+            </View>
             <Text style={styles.itemPrice}>${item.totalPrice.toFixed(2)}</Text>
           </View>
         ))}
@@ -343,15 +350,9 @@ export default function OrderDetailsScreen() {
           {order.deliveryProof.deliveryNote ? (
             <Text style={styles.muted}>{order.deliveryProof.deliveryNote}</Text>
           ) : null}
-          {order.deliveryProof.agentSignatureDataUrl ? (
-            <View style={styles.sigBlock}>
-              <Text style={styles.sigLabel}>Driver signature</Text>
-              <SignatureImage uri={order.deliveryProof.agentSignatureDataUrl} />
-            </View>
-          ) : null}
           {order.deliveryProof.clientSignatureDataUrl ? (
             <View style={styles.sigBlock}>
-              <Text style={styles.sigLabel}>Your signature</Text>
+              <Text style={styles.sigLabel}>Customer signature</Text>
               <SignatureImage uri={order.deliveryProof.clientSignatureDataUrl} />
             </View>
           ) : null}
@@ -401,7 +402,9 @@ const styles = StyleSheet.create({
   },
   trackingText: { ...typography.bodySmall, color: colors.text, flex: 1 },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs },
-  itemName: { ...typography.bodySmall, flex: 1, color: colors.text },
+  itemDetails: { flex: 1 },
+  itemName: { ...typography.bodySmall, color: colors.text },
+  unavailableItem: { ...typography.caption, color: colors.danger, fontWeight: '600' },
   itemPrice: { ...typography.bodySmall, color: colors.text },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
   totalRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm, marginTop: spacing.xs },
