@@ -1,17 +1,17 @@
 ALTER TABLE "User"
-ADD COLUMN "guestAccessTokenHash" TEXT;
+ADD COLUMN IF NOT EXISTS "guestAccessTokenHash" TEXT;
 
 ALTER TABLE "Order"
-ADD COLUMN "isGuest" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN "guestEmail" TEXT,
-ADD COLUMN "guestWhatsappOptIn" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN "guestInvoiceTokenHash" TEXT;
+ADD COLUMN IF NOT EXISTS "isGuest" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "guestEmail" TEXT,
+ADD COLUMN IF NOT EXISTS "guestWhatsappOptIn" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "guestInvoiceTokenHash" TEXT;
 
-CREATE UNIQUE INDEX "User_guestAccessTokenHash_key"
+CREATE UNIQUE INDEX IF NOT EXISTS "User_guestAccessTokenHash_key"
 ON "User"("guestAccessTokenHash");
 
-CREATE INDEX "Order_isGuest_createdAt_idx"
+CREATE INDEX IF NOT EXISTS "Order_isGuest_createdAt_idx"
 ON "Order"("isGuest", "createdAt");
 
-CREATE UNIQUE INDEX "Order_guestInvoiceTokenHash_key"
+CREATE UNIQUE INDEX IF NOT EXISTS "Order_guestInvoiceTokenHash_key"
 ON "Order"("guestInvoiceTokenHash");
