@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import * as ExcelJS from 'exceljs';
 import { Prisma, ProductImportRow } from '@prisma/client';
@@ -279,6 +279,41 @@ export class ProductImportsService {
       : [];
     const updated = await this.prisma.productImportRow.update({ where: { id: rowId }, data: { storedImageUrl, issues, errorMessage: null } });
     return this.formatRow(updated);
+  }
+
+  async deleteRows(rowIds: string[]) {
+    const uniqueIds = [...new Set(rowIds)];
+    const rows = await this.prisma.productImportRow.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, batchId: true, status: true, storedImageUrl: true },
+    });
+    if (rows.length !== uniqueIds.length) throw new NotFoundException('One or more imported products no longer exist');
+    if (rows.some((row) => row.status === 'published')) {
+      throw new BadRequestException('Published products must be deleted from the live Products page');
+    }
+
+    await this.prisma.productImportRow.deleteMany({ where: { id: { in: uniqueIds }, status: { not: 'published' } } });
+    for (const batchId of [...new Set(rows.map((row) => row.batchId))]) {
+      const counts = await this.rowCounts(batchId);
+      await this.prisma.productImportBatch.update({ where: { id: batchId }, data: counts });
+    }
+    await Promise.all(rows.map((row) => this.removeUnusedImportedImage(row.storedImageUrl)));
+    return { deleted: rows.length };
+  }
+
+  private async removeUnusedImportedImage(imageUrl: string | null) {
+    if (!imageUrl) return;
+    let pathname: string;
+    try { pathname = new URL(imageUrl, 'https://local.invalid').pathname; } catch { return; }
+    const match = pathname.match(/^\/(?:api\/)?uploads\/products\/([a-f0-9-]+\.(?:jpg|png|webp))$/i);
+    if (!match) return;
+    const [otherRows, products, productImages] = await Promise.all([
+      this.prisma.productImportRow.count({ where: { storedImageUrl: imageUrl } }),
+      this.prisma.product.count({ where: { imageUrl } }),
+      this.prisma.productImage.count({ where: { imageUrl } }),
+    ]);
+    if (otherRows || products || productImages) return;
+    try { await unlink(resolve(process.cwd(), 'uploads', 'products', match[1])); } catch { /* Already absent. */ }
   }
 
   async queueImport(batchId: string) {

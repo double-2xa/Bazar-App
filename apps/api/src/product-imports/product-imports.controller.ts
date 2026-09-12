@@ -1,9 +1,9 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
-import { AnalyzeProductImportDto, BulkProductImportActionDto, ProductImportRowsQueryDto, PublishProductImportRowsDto, UpdateProductImportRowDto } from './dto/product-import.dto';
+import { AnalyzeProductImportDto, BulkProductImportActionDto, DeleteProductImportRowsDto, ProductImportRowsQueryDto, PublishProductImportRowsDto, UpdateProductImportRowDto } from './dto/product-import.dto';
 import { ProductImportsService } from './product-imports.service';
 
 @Roles('admin')
@@ -26,6 +26,9 @@ export class ProductImportsController {
 
   @Post('publish')
   publish(@Body() dto: PublishProductImportRowsDto) { return this.imports.publish(dto.rowIds); }
+
+  @Delete('rows')
+  deleteRows(@Body() dto: DeleteProductImportRowsDto) { return this.imports.deleteRows(dto.rowIds); }
 
   @Post('rows/:rowId/image')
   @UseInterceptors(FileInterceptor('image', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))

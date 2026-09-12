@@ -16,6 +16,7 @@ import { Badge } from './Badge';
 import { useAuthStore } from '../store/authStore';
 import { useWishlist } from '@/hooks/useWishlist';
 import { useProductCardWidth } from '@/layout/webLayout';
+import { resolveApiAssetUrl } from '@/services/resolveApiAssetUrl';
 
 interface ProductCardProps {
   product: Product;
@@ -43,7 +44,7 @@ export function ProductCard({ product, onPress, onAddToCart }: ProductCardProps)
     <TouchableOpacity style={[styles.card, { width: cardWidth }]} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.imageContainer}>
         <Image
-          source={{ uri: product.imageUrl || product.images?.[0]?.imageUrl || '', cache: 'force-cache' }}
+          source={{ uri: resolveApiAssetUrl(product.imageUrl || product.images?.[0]?.imageUrl), cache: 'force-cache' }}
           style={styles.image}
           resizeMode="cover"
         />

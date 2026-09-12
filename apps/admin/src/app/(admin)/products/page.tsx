@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import api from '@/services/api';
+import api, { resolveApiAssetUrl } from '@/services/api';
 import type { Category, PaginatedResponse, Product } from '@doublea/shared';
 import { getApiErrorMessage } from '@/utils/orderDelivery';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
@@ -122,7 +122,7 @@ export default function ProductsPage() {
       isActive: product.isActive,
     });
     setImageFile(null);
-    setImagePreview(product.imageUrl ?? '');
+    setImagePreview(resolveApiAssetUrl(product.imageUrl));
     setError('');
     setMessage('');
     setDialog('edit');
@@ -252,7 +252,7 @@ export default function ProductsPage() {
                 <tr key={product.id}>
                   <td>
                     <div className="product-table-identity">
-                      {product.imageUrl ? <img src={product.imageUrl} alt="" loading="lazy" /> : <span className="product-table-placeholder" aria-hidden>▧</span>}
+                      {product.imageUrl ? <img src={resolveApiAssetUrl(product.imageUrl)} alt="" loading="lazy" /> : <span className="product-table-placeholder" aria-hidden>▧</span>}
                       <div><strong>{product.name}</strong><span>{product.brand || 'No brand'}</span></div>
                     </div>
                   </td>
@@ -299,7 +299,7 @@ export default function ProductsPage() {
                   <span className="product-upload-help">JPEG, PNG or WebP · maximum 5 MB</span>
                   <div className="product-image-or"><span>or</span></div>
                   <label htmlFor="product-image-url">Image URL</label>
-                  <input id="product-image-url" type="url" value={form.imageUrl} onChange={(event) => { setForm({ ...form, imageUrl: event.target.value }); setImageFile(null); setImagePreview(event.target.value); }} placeholder="https://..." />
+                  <input id="product-image-url" type="text" inputMode="url" value={form.imageUrl} onChange={(event) => { setForm({ ...form, imageUrl: event.target.value }); setImageFile(null); setImagePreview(resolveApiAssetUrl(event.target.value)); }} placeholder="https://..." />
                 </div>
               </div>
 

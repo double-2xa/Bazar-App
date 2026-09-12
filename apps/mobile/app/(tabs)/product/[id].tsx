@@ -25,6 +25,7 @@ import {
 import { useAppLayoutWidth } from '@/layout/webLayout';
 import { useAddToCart } from '@/hooks/useAddToCart';
 import type { GestureResponderEvent } from 'react-native';
+import { resolveApiAssetUrl } from '@/services/resolveApiAssetUrl';
 
 export default function ProductDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -80,8 +81,8 @@ export default function ProductDetailsScreen() {
   }
 
   const images = product.images?.length
-    ? product.images.map((i) => i.imageUrl)
-    : [product.imageUrl || ''];
+    ? product.images.map((i) => resolveApiAssetUrl(i.imageUrl))
+    : [resolveApiAssetUrl(product.imageUrl)];
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

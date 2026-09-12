@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { cartApi } from '@/services/endpoints';
 import { hapticSuccess, hapticLight } from '@/utils/haptics';
 import { useCartFeedbackStore, type CartFeedbackOrigin } from '@/store/cartFeedbackStore';
+import { resolveApiAssetUrl } from '@/services/resolveApiAssetUrl';
 
 export function useAddToCart() {
   const { isAuthenticated, user, showCompanyPrice, addToGuestCart } = useAuthStore();
@@ -42,7 +43,7 @@ export function useAddToCart() {
         }
         showAdded({
           productName: product.name,
-          imageUrl: product.imageUrl || product.images?.[0]?.imageUrl,
+          imageUrl: resolveApiAssetUrl(product.imageUrl || product.images?.[0]?.imageUrl),
           quantity,
           origin,
         });

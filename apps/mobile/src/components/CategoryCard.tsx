@@ -3,6 +3,7 @@ import { Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import type { Category } from '@doublea/shared';
 import { colors, borderRadius, typography, spacing, shadows } from '../theme';
 import { useAppLayoutWidth, useCategoryGridColumns } from '@/layout/webLayout';
+import { resolveApiAssetUrl } from '@/services/resolveApiAssetUrl';
 
 interface CategoryCardProps {
   category: Category;
@@ -26,7 +27,7 @@ export function CategoryCard({ category, onPress, variant = 'compact' }: Categor
       accessibilityLabel={category.name}
     >
       <Image
-        source={{ uri: category.imageUrl || '' }}
+        source={{ uri: resolveApiAssetUrl(category.imageUrl) }}
         style={[styles.image, isGrid && styles.imageGrid]}
         resizeMode="cover"
       />

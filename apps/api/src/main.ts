@@ -19,6 +19,8 @@ async function bootstrap() {
     prefix: '/api/uploads/',
     maxAge: '1y',
     immutable: true,
+    dotfiles: 'deny',
+    index: false,
   });
   // Keep old image URLs working while clients and stored catalog records migrate
   // to the API-prefixed route used by production ingress configurations.
@@ -26,6 +28,8 @@ async function bootstrap() {
     prefix: '/uploads/',
     maxAge: '1y',
     immutable: true,
+    dotfiles: 'deny',
+    index: false,
   });
   app.enableCors({
     origin: configuredCorsOrigins(),

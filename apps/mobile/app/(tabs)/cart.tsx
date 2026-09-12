@@ -6,6 +6,7 @@ import { colors, spacing, borderRadius, typography, shadows } from '@/theme';
 import { cartApi } from '@/services/endpoints';
 import { useAuthStore } from '@/store/authStore';
 import { AppButton, EmptyState, PriceDisplay, FloatingActionBar } from '@/components';
+import { resolveApiAssetUrl } from '@/services/resolveApiAssetUrl';
 
 export default function CartScreen() {
   const { isAuthenticated, guestCart, updateGuestCartItem, removeFromGuestCart } = useAuthStore();
@@ -85,7 +86,7 @@ export default function CartScreen() {
           return (
             <View key={item.id} style={styles.item}>
               <Image
-                source={{ uri: item.product?.imageUrl || '' }}
+                source={{ uri: resolveApiAssetUrl(item.product?.imageUrl) }}
                 style={styles.image}
               />
               <View style={styles.itemInfo}>

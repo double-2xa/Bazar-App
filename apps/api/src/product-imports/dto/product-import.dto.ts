@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export class AnalyzeProductImportDto {
@@ -76,4 +76,12 @@ export class PublishProductImportRowsDto {
   @IsArray()
   @IsUUID(undefined, { each: true })
   rowIds?: string[];
+}
+
+export class DeleteProductImportRowsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsUUID(undefined, { each: true })
+  rowIds!: string[];
 }
