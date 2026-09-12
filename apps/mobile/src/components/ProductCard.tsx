@@ -31,11 +31,11 @@ export function ProductCard({ product, onPress, onAddToCart }: ProductCardProps)
   const [adding, setAdding] = useState(false);
 
   const isCompany =
-    user?.role === 'company' && user.companyProfile?.status === 'approved' && showCompanyPrice;
-  const price = isCompany ? product.companyPrice : product.normalPrice;
+    user?.role === 'company' && user.companyProfile?.status === 'approved' && showCompanyPrice && product.companyPrice !== null;
+  const price = isCompany ? product.companyPrice! : product.normalPrice;
   const originalPrice = isCompany ? product.normalPrice : undefined;
   const discount =
-    !isCompany && product.companyPrice < product.normalPrice
+    !isCompany && product.companyPrice !== null && product.companyPrice < product.normalPrice
       ? Math.round((1 - product.companyPrice / product.normalPrice) * 100)
       : 0;
 
@@ -43,7 +43,7 @@ export function ProductCard({ product, onPress, onAddToCart }: ProductCardProps)
     <TouchableOpacity style={[styles.card, { width: cardWidth }]} onPress={onPress} activeOpacity={0.9}>
       <View style={styles.imageContainer}>
         <Image
-          source={{ uri: product.imageUrl || product.images?.[0]?.imageUrl || '' }}
+          source={{ uri: product.imageUrl || product.images?.[0]?.imageUrl || '', cache: 'force-cache' }}
           style={styles.image}
           resizeMode="cover"
         />

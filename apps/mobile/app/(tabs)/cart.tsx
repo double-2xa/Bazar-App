@@ -40,7 +40,7 @@ export default function CartScreen() {
         product: g.product,
       }));
 
-  const subtotal = items.reduce((sum: number, item: { product?: { normalPrice: number; companyPrice: number }; selectedPriceType?: string; quantity: number }) => {
+  const subtotal = items.reduce((sum: number, item: { product?: { normalPrice: number; companyPrice: number | null }; selectedPriceType?: string; quantity: number }) => {
     const price =
       item.selectedPriceType === 'company'
         ? item.product?.companyPrice || 0
@@ -77,7 +77,7 @@ export default function CartScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {items.map((item: { id: string; product?: { id: string; name: string; imageUrl?: string; normalPrice: number; companyPrice: number }; quantity: number; selectedPriceType?: string }) => {
+        {items.map((item: { id: string; product?: { id: string; name: string; imageUrl?: string; normalPrice: number; companyPrice: number | null }; quantity: number; selectedPriceType?: string }) => {
           const price =
             item.selectedPriceType === 'company'
               ? item.product?.companyPrice || 0

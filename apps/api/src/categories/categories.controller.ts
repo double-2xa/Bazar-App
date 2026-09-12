@@ -26,6 +26,24 @@ export class CategoriesController {
   }
 
   @Roles('admin')
+  @Post(':id/subcategories')
+  createSubcategory(@Param('id') id: string, @Body() dto: CreateCategoryDto) {
+    return this.categoriesService.createSubcategory(id, dto);
+  }
+
+  @Roles('admin')
+  @Patch('subcategories/:id')
+  updateSubcategory(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
+    return this.categoriesService.updateSubcategory(id, dto);
+  }
+
+  @Roles('admin')
+  @Delete('subcategories/:id')
+  removeSubcategory(@Param('id') id: string) {
+    return this.categoriesService.removeSubcategory(id);
+  }
+
+  @Roles('admin')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.categoriesService.update(id, dto);

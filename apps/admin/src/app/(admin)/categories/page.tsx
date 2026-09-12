@@ -33,6 +33,8 @@ export default function CategoriesPage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [addingSubcategoryTo, setAddingSubcategoryTo] = useState<string | null>(null);
+  const [subcategoryName, setSubcategoryName] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -133,6 +135,18 @@ export default function CategoriesPage() {
     }
   };
 
+  const addSubcategory = async (categoryId: string) => {
+    const name = subcategoryName.trim();
+    if (!name) return;
+    setSubmitting(true); setError('');
+    try {
+      const slug = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `subcategory-${Date.now()}`;
+      await api.post(`/categories/${categoryId}/subcategories`, { name, slug });
+      setAddingSubcategoryTo(null); setSubcategoryName(''); setMessage('Subcategory added.'); load();
+    } catch (err) { setError(getApiErrorMessage(err, 'Failed to add subcategory.')); }
+    finally { setSubmitting(false); }
+  };
+
   return (
     <div>
       <div className="categories-header">
@@ -163,6 +177,7 @@ export default function CategoriesPage() {
                 <th>Name</th>
                 <th>Slug</th>
                 <th>Description</th>
+                <th>Subcategories</th>
                 <th>Status</th>
                 <th><span className="sr-only">Actions</span></th>
               </tr>
@@ -173,6 +188,7 @@ export default function CategoriesPage() {
                   <td style={{ fontWeight: 600 }}>{category.name}</td>
                   <td><code className="category-slug">{category.slug}</code></td>
                   <td className="category-description">{category.description || '—'}</td>
+                  <td><div className="category-subcategories">{category.subcategories?.map((subcategory) => <span key={subcategory.id}>{subcategory.name}</span>)}{addingSubcategoryTo === category.id ? <div className="category-subcategory-add"><input autoFocus placeholder="Subcategory name" value={subcategoryName} onChange={(event) => setSubcategoryName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void addSubcategory(category.id); }} /><button disabled={submitting} onClick={() => void addSubcategory(category.id)}>Save</button><button onClick={() => { setAddingSubcategoryTo(null); setSubcategoryName(''); }}>Cancel</button></div> : <button className="category-add-subcategory" onClick={() => { setAddingSubcategoryTo(category.id); setSubcategoryName(''); }}>＋ Add</button>}</div></td>
                   <td>
                     <span className={`badge ${category.isActive ? 'badge-success' : 'badge-danger'}`}>
                       {category.isActive ? 'Active' : 'Inactive'}

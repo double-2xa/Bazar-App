@@ -44,12 +44,12 @@ export default function ProductDetailsScreen() {
 
   const { data: related } = useQuery({
     queryKey: ['products', 'related', product?.categoryId],
-    queryFn: () => productsApi.getAll({ categoryId: product!.categoryId, limit: 4 }),
+    queryFn: () => productsApi.getAll({ categoryId: product!.categoryId!, limit: 4 }),
     enabled: !!product?.categoryId,
   });
 
   const isCompany = user?.role === 'company' && user.companyProfile?.status === 'approved';
-  const useCompanyPrice = isCompany && showCompanyPrice;
+  const useCompanyPrice = isCompany && showCompanyPrice && product?.companyPrice !== null;
   const price = useCompanyPrice ? product?.companyPrice : product?.normalPrice;
   const originalPrice = useCompanyPrice ? product?.normalPrice : undefined;
   const wishlisted = product ? isWishlisted(product.id) : false;
@@ -120,7 +120,7 @@ export default function ProductDetailsScreen() {
           </Text>
         </View>
 
-        {isCompany && (
+        {isCompany && product.companyPrice !== null && (
           <CompanyPriceToggle showCompanyPrice={showCompanyPrice} onToggle={setShowCompanyPrice} />
         )}
 

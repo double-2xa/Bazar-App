@@ -48,6 +48,17 @@ export interface Category {
   description: string | null;
   imageUrl: string | null;
   isActive: boolean;
+  subcategories?: Subcategory[];
+}
+
+export interface Subcategory {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
 }
 
 export interface ProductImage {
@@ -58,12 +69,16 @@ export interface ProductImage {
 
 export interface Product {
   id: string;
-  categoryId: string;
+  categoryId: string | null;
+  subcategoryId?: string | null;
+  barcode?: string | null;
   name: string;
+  nameAr?: string | null;
+  nameEn?: string | null;
   slug: string;
-  description: string;
+  description: string | null;
   normalPrice: number;
-  companyPrice: number;
+  companyPrice: number | null;
   stockQuantity: number;
   sku: string;
   brand: string | null;
@@ -75,6 +90,7 @@ export interface Product {
   isFeatured: boolean;
   isActive: boolean;
   category?: Category;
+  subcategory?: Subcategory | null;
 }
 
 export interface Address {

@@ -2013,6 +2013,46 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-image-or { display: flex; align-items: center; gap: 8px; margin: 10px 0; color: var(--muted); font-size: 10px; }
 .product-image-or::before, .product-image-or::after { content: ''; height: 1px; flex: 1; background: var(--border); }
 .product-image-editor > label:not(.product-upload-button) { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 600; }
+
+.products-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.catalog-back-link { display: inline-block; margin-bottom: 8px; color: var(--muted); font-size: 12px; text-decoration: none; }
+.catalog-back-link:hover { color: var(--foreground); }
+.catalog-import-page { display: grid; gap: 16px; }
+.import-step-card, .import-preview-card { padding: 20px; }
+.import-step-card--disabled { opacity: .55; }
+.import-step-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+.import-step-heading > span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; font-size: 13px; flex: 0 0 auto; }
+.import-step-heading h2, .import-preview-header h2 { margin: 0 0 4px; font-size: 17px; }
+.import-step-heading p, .import-preview-header p { margin: 0; color: var(--muted); font-size: 12px; }
+.import-upload-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.import-upload-row input[type="file"] { min-width: 320px; max-width: 100%; padding: 9px; border: 1px dashed var(--border); border-radius: 8px; background: #fafafa; }
+.import-file-summary { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; padding: 11px 13px; background: #f7f8fa; border-radius: 8px; font-size: 12px; }
+.import-file-summary span { color: var(--muted); }
+.import-range-grid { display: grid; grid-template-columns: minmax(150px, 220px) minmax(150px, 220px) minmax(140px, 1fr) auto; align-items: end; gap: 14px; }
+.import-range-grid label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; }
+.import-selected-count { min-height: 42px; display: flex; align-items: baseline; gap: 6px; padding: 9px 12px; background: #f7f8fa; border-radius: 8px; }
+.import-selected-count strong { font-size: 18px; }.import-selected-count span { color: var(--muted); font-size: 11px; }
+.import-preview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.import-summary-pills { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.import-summary-pills span { padding: 5px 9px; border-radius: 999px; background: #f0f2f5; font-size: 11px; font-weight: 600; }
+.import-bulk-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 9px 0; font-size: 12px; }
+.import-bulk-actions span { margin-right: auto; font-weight: 600; }.import-bulk-actions button, .import-pagination button { border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 6px 10px; cursor: pointer; }
+.import-bulk-actions button:disabled, .import-pagination button:disabled { opacity: .45; cursor: default; }
+.import-table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+.import-preview-table { min-width: 960px; }.import-preview-table td { vertical-align: top; }
+.import-cell-secondary { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.import-issues { display: flex; gap: 4px; flex-wrap: wrap; max-width: 320px; }
+.import-issues span { padding: 3px 6px; border-radius: 4px; background: #fff5db; color: #8b5a00; font-size: 10px; white-space: nowrap; }
+.import-issues .is-error { background: #fee9e7; color: #a42318; }.import-issues .is-ready { background: #e7f7ed; color: #176b37; }
+.import-pagination { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 14px 0; color: var(--muted); font-size: 11px; }
+.import-final-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.import-final-actions > div { display: grid; gap: 3px; }.import-final-actions span { color: var(--muted); font-size: 11px; }
+.import-products-toolbar { gap: 10px; }.import-products-toolbar select { min-width: 180px; }.import-products-toolbar .btn { margin-left: auto; }
+.text-danger { color: #b42318; }
+.category-subcategories { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; min-width: 180px; }.category-subcategories > span { padding: 3px 7px; border-radius: 999px; background: #f0f2f5; font-size: 10px; }.category-add-subcategory { border: 0; background: transparent; color: var(--primary); cursor: pointer; font-size: 11px; font-weight: 600; }.category-subcategory-add { display: flex; gap: 4px; width: 100%; }.category-subcategory-add input { min-width: 120px; padding: 5px 7px; }.category-subcategory-add button { padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: #fff; font-size: 10px; cursor: pointer; }
+.imported-products-table { min-width: 1250px; }.import-category-controls { display: grid; gap: 4px; min-width: 150px; }.import-category-controls select { max-width: 180px; font-size: 11px; }
+.import-image-control { display: grid; gap: 4px; }.import-image-control label { color: var(--primary); cursor: pointer; font-size: 10px; font-weight: 600; }.import-image-control input { display: none; }
+@media (max-width: 900px) { .import-range-grid { grid-template-columns: 1fr 1fr; }.import-preview-header, .import-final-actions { flex-direction: column; align-items: stretch; }.import-summary-pills { justify-content: flex-start; } }
 .product-image-editor > input { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; }
 
 .product-pricing-grid {

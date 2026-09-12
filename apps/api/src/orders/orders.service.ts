@@ -476,11 +476,14 @@ export class OrdersService {
         ) {
           throw new ForbiddenException("Company pricing not available");
         }
+        if (product.companyPrice === null) {
+          throw new BadRequestException(`Wholesale pricing is not available for ${product.name}`);
+        }
       }
 
       const unitPrice =
         priceType === "company"
-          ? decimalToNumber(product.companyPrice)
+          ? decimalToNumber(product.companyPrice!)
           : decimalToNumber(product.normalPrice);
       const totalPrice = unitPrice * item.quantity;
       subtotal += totalPrice;

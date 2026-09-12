@@ -53,6 +53,33 @@ enum CouponType {
   fixed
 }
 
+enum ProductImportStatus {
+  uploaded
+  analyzing
+  ready
+  importing
+  completed
+  completed_with_errors
+  failed
+  cancelled
+}
+
+enum ProductImportRowStatus {
+  ready
+  warning
+  invalid
+  skipped
+  imported
+  published
+  failed
+}
+
+enum ProductImportAction {
+  create
+  skip
+  overwrite
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -80,6 +107,7 @@ model User {
   deliveryProofs   DeliveryProof[]
   notifications    Notification[]
   pushTokens       PushToken[]
+  productImportBatches ProductImportBatch[]
 
   @@index([role, isActive])
   @@index([createdAt])
@@ -164,16 +192,38 @@ model Category {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   products    Product[]
+  subcategories Subcategory[]
+}
+
+model Subcategory {
+  id          String    @id @default(uuid())
+  categoryId  String
+  name        String
+  slug        String
+  description String?
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  products    Product[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId, isActive])
 }
 
 model Product {
   id            String         @id @default(uuid())
-  categoryId    String
+  categoryId    String?
+  subcategoryId String?
+  barcode       String?        @unique
   name          String
+  nameAr        String?
+  nameEn        String?
   slug          String         @unique
-  description   String
+  description   String?
   normalPrice   Decimal        @db.Decimal(10, 2)
-  companyPrice  Decimal        @db.Decimal(10, 2)
+  companyPrice  Decimal?       @db.Decimal(10, 2)
   stockQuantity Int            @default(0)
   sku           String         @unique
   brand         String?
@@ -185,7 +235,8 @@ model Product {
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  category      Category       @relation(fields: [categoryId], references: [id])
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategory   Subcategory?   @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
   images        ProductImage[]
   cartItems     CartItem[]
   orderItems    OrderItem[]
@@ -193,8 +244,79 @@ model Product {
   reviews       Review[]
 
   @@index([categoryId, isActive])
+  @@index([subcategoryId, isActive])
   @@index([isActive, createdAt])
   @@index([stockQuantity])
+}
+
+model ProductImportBatch {
+  id              String              @id @default(uuid())
+  createdById     String
+  originalName    String
+  storedFilePath  String
+  fileHash        String
+  sheetName       String?
+  firstDataRow    Int?
+  lastDataRow     Int?
+  selectedFromRow Int?
+  selectedToRow   Int?
+  status          ProductImportStatus @default(uploaded)
+  totalRows       Int                 @default(0)
+  selectedRows    Int                 @default(0)
+  readyRows       Int                 @default(0)
+  warningRows     Int                 @default(0)
+  invalidRows     Int                 @default(0)
+  duplicateRows   Int                 @default(0)
+  importedRows    Int                 @default(0)
+  publishedRows   Int                 @default(0)
+  skippedRows     Int                 @default(0)
+  failedRows      Int                 @default(0)
+  errorMessage    String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  analyzedAt      DateTime?
+  completedAt     DateTime?
+  createdBy       User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  rows            ProductImportRow[]
+
+  @@index([createdById, createdAt])
+  @@index([status, createdAt])
+  @@index([fileHash])
+}
+
+model ProductImportRow {
+  id                 String                 @id @default(uuid())
+  batchId            String
+  excelRow            Int
+  barcode             String?
+  nameAr              String?
+  nameEn              String?
+  currency            String?
+  normalPrice         Decimal?               @db.Decimal(10, 2)
+  companyPrice        Decimal?               @db.Decimal(10, 2)
+  categoryName        String?
+  subcategoryName     String?
+  categoryId          String?
+  subcategoryId       String?
+  sourceImage         String?
+  storedImageUrl      String?
+  stockQuantity       Int?
+  action              ProductImportAction   @default(create)
+  status              ProductImportRowStatus @default(ready)
+  issues              Json?
+  existingProductId   String?
+  publishedProductId  String?
+  errorMessage        String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  batch               ProductImportBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, excelRow])
+  @@index([batchId, status, excelRow])
+  @@index([batchId, action])
+  @@index([barcode])
+  @@index([existingProductId])
+  @@index([publishedProductId])
 }
 
 model ProductImage {

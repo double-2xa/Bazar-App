@@ -79,8 +79,8 @@ export default function CheckoutScreen() {
   });
 
   const items = isAuthenticated ? cart?.items || [] : guestCart;
-  const subtotal = items.reduce((sum: number, item: { product: { normalPrice: number; companyPrice: number }; selectedPriceType: string; quantity: number }) => {
-    const price = isAuthenticated && item.selectedPriceType === 'company' ? item.product.companyPrice : item.product.normalPrice;
+  const subtotal = items.reduce((sum: number, item: { product: { normalPrice: number; companyPrice: number | null }; selectedPriceType: string; quantity: number }) => {
+    const price = isAuthenticated && item.selectedPriceType === 'company' && item.product.companyPrice !== null ? item.product.companyPrice : item.product.normalPrice;
     return sum + price * item.quantity;
   }, 0);
   const activeQuote = isAuthenticated ? deliveryQuote : guestDeliveryQuote;

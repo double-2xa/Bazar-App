@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { productsApi } from '@/services/endpoints';
 import { BRAND } from '@doublea/shared';
@@ -20,18 +20,23 @@ export default function SearchScreen() {
   const debouncedSearch = useDebounce(search, 400);
   const columns = useProductGridColumns();
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['products', 'search', debouncedSearch, priceOrder],
-    queryFn: () => {
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
       const params: Record<string, string | number | boolean> = {
         sortBy: 'price',
         sortOrder: priceOrder,
         limit: 30,
+        page: pageParam,
       };
       if (debouncedSearch) params.search = debouncedSearch;
       return productsApi.getAll(params);
     },
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
   });
+
+  const products = data?.pages.flatMap((result) => result.data) ?? [];
 
   return (
     <ScreenContainer scroll={false} edges={['top']}>
@@ -80,11 +85,14 @@ export default function SearchScreen() {
       ) : (
         <FlatList
           key={`search-grid-${columns}`}
-          data={data?.data}
+          data={products}
           keyExtractor={(item) => item.id}
           numColumns={columns}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.list}
+          onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+          onEndReachedThreshold={0.6}
+          ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={{ margin: spacing.md }} color={colors.primary} /> : null}
           ListEmptyComponent={
             <EmptyState
               icon="search-outline"

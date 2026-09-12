@@ -76,12 +76,12 @@ export const reviewSchema = z.object({
 });
 
 export const productSchema = z.object({
-  categoryId: z.string().uuid(),
+  categoryId: z.string().uuid().nullable().optional(),
   name: z.string().min(2),
   slug: z.string().min(2),
-  description: z.string(),
+  description: z.string().nullable().optional(),
   normalPrice: z.number().positive(),
-  companyPrice: z.number().positive(),
+  companyPrice: z.number().positive().nullable().optional(),
   stockQuantity: z.number().int().min(0),
   sku: z.string().min(1),
   brand: z.string().optional(),

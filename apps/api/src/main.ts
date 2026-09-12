@@ -14,7 +14,11 @@ async function bootstrap() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(json({ limit: process.env.HTTP_BODY_LIMIT || '256kb' }));
   app.use(urlencoded({ extended: false, limit: process.env.HTTP_BODY_LIMIT || '256kb' }));
-  app.useStaticAssets(resolve(process.cwd(), 'uploads'), { prefix: '/uploads/' });
+  app.useStaticAssets(resolve(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+    maxAge: '1y',
+    immutable: true,
+  });
   app.enableCors({
     origin: configuredCorsOrigins(),
     credentials: true,

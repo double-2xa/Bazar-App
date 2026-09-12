@@ -25,6 +25,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { RedisModule } from "./redis/redis.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { ProductImportsModule } from "./product-imports/product-imports.module";
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     HealthModule,
     MaintenanceModule,
     NotificationsModule,
+    ProductImportsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -5,6 +5,7 @@ import api from '@/services/api';
 import type { Category, PaginatedResponse, Product } from '@doublea/shared';
 import { getApiErrorMessage } from '@/utils/orderDelivery';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
+import Link from 'next/link';
 
 type ProductForm = {
   name: string;
@@ -45,17 +46,21 @@ export default function ProductsPage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'inactive'>('live');
 
   const loadProducts = useCallback(() => {
     setLoading(true);
     api
       .get<PaginatedResponse<Product>>('/products/admin/all', {
-        params: { limit: 100, search: search || undefined },
+        params: { page, limit: 50, search: search || undefined, status: statusFilter },
       })
-      .then((response) => setProducts(response.data.data))
+      .then((response) => { setProducts(response.data.data); setTotal(response.data.total); setTotalPages(response.data.totalPages); })
       .catch((err) => setError(getApiErrorMessage(err, 'Failed to load products.')))
       .finally(() => setLoading(false));
-  }, [search]);
+  }, [page, search, statusFilter]);
 
   const loadCategories = useCallback(() => {
     api
@@ -65,7 +70,8 @@ export default function ProductsPage() {
   }, []);
 
   useEffect(() => {
-    loadProducts();
+    const timer = window.setTimeout(loadProducts, 250);
+    return () => window.clearTimeout(timer);
   }, [loadProducts]);
 
   useEffect(() => {
@@ -107,11 +113,11 @@ export default function ProductsPage() {
     setForm({
       name: product.name,
       brand: product.brand ?? '',
-      description: product.description,
+      description: product.description ?? '',
       imageUrl: product.imageUrl ?? '',
-      categoryId: product.categoryId,
+      categoryId: product.categoryId ?? '',
       normalPrice: String(product.normalPrice),
-      companyPrice: String(product.companyPrice),
+      companyPrice: product.companyPrice === null ? '' : String(product.companyPrice),
       stockQuantity: String(product.stockQuantity),
       isActive: product.isActive,
     });
@@ -160,9 +166,9 @@ export default function ProductsPage() {
         brand: form.brand.trim() || undefined,
         description: form.description.trim(),
         imageUrl,
-        categoryId: form.categoryId,
+        categoryId: form.categoryId || undefined,
         normalPrice: Number(form.normalPrice),
-        companyPrice: Number(form.companyPrice),
+        companyPrice: form.companyPrice === '' ? undefined : Number(form.companyPrice),
         stockQuantity: Number.parseInt(form.stockQuantity, 10),
         isActive: form.isActive,
       };
@@ -211,17 +217,16 @@ export default function ProductsPage() {
           <h1>Products</h1>
           <p>Manage product details, pricing, stock, and storefront availability.</p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openCreateDialog}>
-          <span aria-hidden>＋</span> Add product
-        </button>
+        <div className="products-header-actions"><Link className="btn btn-outline" href="/products/imported">Imported products</Link><Link className="btn btn-outline" href="/products/import-history">Import history</Link><Link className="btn btn-outline" href="/products/import">Import Excel</Link><button type="button" className="btn btn-primary" onClick={openCreateDialog}><span aria-hidden>＋</span> Add product</button></div>
       </div>
 
       {error && !dialog ? <div className="alert alert-error">{error}</div> : null}
       {message ? <div className="alert alert-success">{message}</div> : null}
 
       <div className="products-toolbar">
-        <input placeholder="Search products…" value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search products" />
-        <span>{products.length} product{products.length === 1 ? '' : 's'}</span>
+        <input placeholder="Search name or barcode…" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} aria-label="Search products" />
+        <select aria-label="Product status" value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as typeof statusFilter); setPage(1); }}><option value="live">Live products</option><option value="inactive">Inactive products</option><option value="all">All products</option></select>
+        <span>{total.toLocaleString()} product{total === 1 ? '' : 's'}</span>
       </div>
 
       <div className="card products-table-card">
@@ -247,13 +252,13 @@ export default function ProductsPage() {
                 <tr key={product.id}>
                   <td>
                     <div className="product-table-identity">
-                      {product.imageUrl ? <img src={product.imageUrl} alt="" /> : <span className="product-table-placeholder" aria-hidden>▧</span>}
+                      {product.imageUrl ? <img src={product.imageUrl} alt="" loading="lazy" /> : <span className="product-table-placeholder" aria-hidden>▧</span>}
                       <div><strong>{product.name}</strong><span>{product.brand || 'No brand'}</span></div>
                     </div>
                   </td>
                   <td>{product.category?.name ?? '—'}</td>
                   <td>${product.normalPrice.toFixed(2)}</td>
-                  <td>${product.companyPrice.toFixed(2)}</td>
+                  <td>{product.companyPrice === null ? 'Not set' : `$${product.companyPrice.toFixed(2)}`}</td>
                   <td><span className={`badge ${product.stockQuantity > 0 ? 'badge-muted' : 'badge-danger'}`}>{product.stockQuantity}</span></td>
                   <td><span className={`badge ${product.isActive ? 'badge-success' : 'badge-danger'}`}>{product.isActive ? 'Active' : 'Inactive'}</span></td>
                   <td className="product-row__actions">
@@ -266,6 +271,7 @@ export default function ProductsPage() {
           </table>
         )}
       </div>
+      <div className="import-pagination"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {totalPages || 1}</span><button disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)}>Next</button></div>
 
       {dialog ? (
         <div className="modal-overlay product-modal-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !submitting) setDialog(null); }}>
@@ -282,8 +288,8 @@ export default function ProductsPage() {
                 <div className="product-form-main">
                   <div className="form-group"><label htmlFor="product-name">Name</label><input id="product-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required autoFocus /></div>
                   <div className="form-group"><label htmlFor="product-brand">Brand <span className="field-optional">Optional</span></label><input id="product-brand" value={form.brand} onChange={(event) => setForm({ ...form, brand: event.target.value })} /></div>
-                  <div className="form-group"><label htmlFor="product-description">Description</label><textarea id="product-description" rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></div>
-                  <div className="form-group"><label htmlFor="product-category">Category</label><select id="product-category" value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} required><option value="">Select category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}{category.isActive ? '' : ' (inactive)'}</option>)}</select></div>
+                  <div className="form-group"><label htmlFor="product-description">Description <span className="field-optional">Optional</span></label><textarea id="product-description" rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></div>
+                  <div className="form-group"><label htmlFor="product-category">Category <span className="field-optional">Optional</span></label><select id="product-category" value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })}><option value="">Uncategorized</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}{category.isActive ? '' : ' (inactive)'}</option>)}</select></div>
                 </div>
 
                 <div className="product-image-editor">
@@ -299,7 +305,7 @@ export default function ProductsPage() {
 
               <div className="product-pricing-grid">
                 <div className="form-group"><label htmlFor="product-normal-price">Normal price</label><input id="product-normal-price" type="number" min="0" step="0.01" value={form.normalPrice} onChange={(event) => setForm({ ...form, normalPrice: event.target.value })} required /></div>
-                <div className="form-group"><label htmlFor="product-company-price">Company price</label><input id="product-company-price" type="number" min="0" step="0.01" value={form.companyPrice} onChange={(event) => setForm({ ...form, companyPrice: event.target.value })} required /></div>
+                <div className="form-group"><label htmlFor="product-company-price">Company price <span className="field-optional">Optional</span></label><input id="product-company-price" type="number" min="0" step="0.01" value={form.companyPrice} onChange={(event) => setForm({ ...form, companyPrice: event.target.value })} /></div>
                 <div className="form-group"><label htmlFor="product-stock">Stock quantity</label><input id="product-stock" type="number" min="0" step="1" value={form.stockQuantity} onChange={(event) => setForm({ ...form, stockQuantity: event.target.value })} required /></div>
               </div>
 

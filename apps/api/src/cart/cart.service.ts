@@ -57,9 +57,9 @@ export class CartService {
             normalPrice: decimalToNumber(
               (item.product as Record<string, unknown>).normalPrice as never,
             ),
-            companyPrice: decimalToNumber(
-              (item.product as Record<string, unknown>).companyPrice as never,
-            ),
+            companyPrice: (item.product as Record<string, unknown>).companyPrice === null
+              ? null
+              : decimalToNumber((item.product as Record<string, unknown>).companyPrice as never),
           }
         : undefined,
     }));
@@ -82,6 +82,9 @@ export class CartService {
       if (!product || !product.isActive) throw new NotFoundException('Product not found');
       if (priceType === 'company' && (user?.role !== 'company' || user.companyProfile?.status !== 'approved')) {
         throw new BadRequestException('Company pricing not available');
+      }
+      if (priceType === 'company' && product.companyPrice === null) {
+        throw new BadRequestException('Wholesale pricing is not available for this product');
       }
       const cart = await tx.cart.upsert({ where: { userId }, create: { userId }, update: {} });
       const existing = await tx.cartItem.findUnique({

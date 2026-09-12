@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router } from 'expo-router';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { productsApi, categoriesApi } from '@/services/endpoints';
 import { ProductCard, ProductCardSkeleton, EmptyState, ScreenContainer } from '@/components';
 import { useAddToCart } from '@/hooks/useAddToCart';
@@ -19,11 +19,14 @@ export default function CategoryScreen() {
 
   const category = categories?.find((c) => c.slug === slug);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['products', 'category', category?.id],
-    queryFn: () => productsApi.getAll({ categoryId: category!.id, limit: 30 }),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => productsApi.getAll({ categoryId: category!.id, limit: 30, page: pageParam }),
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     enabled: !!category?.id,
   });
+  const products = data?.pages.flatMap((result) => result.data) ?? [];
 
   return (
     <ScreenContainer scroll={false}>
@@ -50,11 +53,14 @@ export default function CategoryScreen() {
       ) : (
         <FlatList
           key={`category-grid-${columns}`}
-          data={data?.data}
+          data={products}
           keyExtractor={(item) => item.id}
           numColumns={columns}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.list}
+          onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
+          onEndReachedThreshold={0.6}
+          ListFooterComponent={isFetchingNextPage ? <ActivityIndicator style={{ margin: spacing.md }} color={colors.primary} /> : null}
           ListEmptyComponent={
             <EmptyState title="No products" subtitle={`Nothing in ${category.name} yet`} />
           }

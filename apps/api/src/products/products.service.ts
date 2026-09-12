@@ -12,7 +12,7 @@ export class ProductsService {
     return {
       ...product,
       normalPrice: decimalToNumber(product.normalPrice as never),
-      companyPrice: decimalToNumber(product.companyPrice as never),
+      companyPrice: product.companyPrice === null ? null : decimalToNumber(product.companyPrice as never),
     };
   }
 
@@ -27,17 +27,22 @@ export class ProductsService {
     minPrice?: number;
     maxPrice?: number;
     includeInactive?: boolean;
+    active?: boolean;
   }) {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = query.includeInactive ? {} : { isActive: true };
+    if (query.active !== undefined) where.isActive = query.active;
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.featured) where.isFeatured = true;
     if (query.search) {
       where.OR = [
+        { barcode: { equals: query.search } },
         { name: { contains: query.search, mode: 'insensitive' } },
+        { nameAr: { contains: query.search, mode: 'insensitive' } },
+        { nameEn: { contains: query.search, mode: 'insensitive' } },
         { description: { contains: query.search, mode: 'insensitive' } },
         { brand: { contains: query.search, mode: 'insensitive' } },
       ];
@@ -61,7 +66,7 @@ export class ProductsService {
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
-        include: { images: { orderBy: { sortOrder: 'asc' } }, category: true },
+        include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, subcategory: true },
         skip,
         take: limit,
         orderBy,
@@ -81,7 +86,7 @@ export class ProductsService {
   async findOne(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { images: { orderBy: { sortOrder: 'asc' } }, category: true },
+      include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, subcategory: true },
     });
     if (!product) throw new NotFoundException('Product not found');
     return this.formatProduct(product as unknown as Record<string, unknown>);
@@ -90,7 +95,7 @@ export class ProductsService {
   async findBySlug(slug: string) {
     const product = await this.prisma.product.findUnique({
       where: { slug },
-      include: { images: { orderBy: { sortOrder: 'asc' } }, category: true },
+      include: { images: { orderBy: { sortOrder: 'asc' } }, category: true, subcategory: true },
     });
     if (!product) throw new NotFoundException('Product not found');
     return this.formatProduct(product as unknown as Record<string, unknown>);
@@ -110,7 +115,7 @@ export class ProductsService {
           ? { create: images.map((url, i) => ({ imageUrl: url, sortOrder: i })) }
           : undefined,
       },
-      include: { images: true, category: true },
+      include: { images: true, category: true, subcategory: true },
     });
     return this.formatProduct(product as unknown as Record<string, unknown>);
   }
@@ -138,7 +143,7 @@ export class ProductsService {
     const product = await this.prisma.product.update({
       where: { id },
       data: rest,
-      include: { images: true, category: true },
+      include: { images: true, category: true, subcategory: true },
     });
     if (images) {
       await this.prisma.productImage.deleteMany({ where: { productId: id } });

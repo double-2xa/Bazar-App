@@ -44,7 +44,7 @@ export const authApi = {
 export const productsApi = {
   getAll: (params?: Record<string, string | number | boolean>) =>
     api
-      .get<{ data: Product[]; total: number }>("/products", { params })
+      .get<{ data: Product[]; total: number; page: number; limit: number; totalPages: number }>("/products", { params })
       .then((r) => r.data),
   getById: (id: string) =>
     api.get<Product>(`/products/${id}`).then((r) => r.data),

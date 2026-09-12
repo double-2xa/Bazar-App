@@ -10,6 +10,7 @@ export class CategoriesService {
     return this.prisma.category.findMany({
       where: activeOnly ? { isActive: true } : undefined,
       orderBy: { name: 'asc' },
+      include: { subcategories: { where: activeOnly ? { isActive: true } : undefined, orderBy: { name: 'asc' } } },
     });
   }
 
@@ -38,5 +39,23 @@ export class CategoriesService {
     }
     await this.prisma.category.delete({ where: { id } });
     return { message: 'Category deleted' };
+  }
+
+  async createSubcategory(categoryId: string, dto: CreateCategoryDto) {
+    await this.findOne(categoryId);
+    return this.prisma.subcategory.create({ data: { ...dto, categoryId } });
+  }
+
+  async updateSubcategory(id: string, dto: UpdateCategoryDto) {
+    const existing = await this.prisma.subcategory.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Subcategory not found');
+    return this.prisma.subcategory.update({ where: { id }, data: dto });
+  }
+
+  async removeSubcategory(id: string) {
+    const existing = await this.prisma.subcategory.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Subcategory not found');
+    await this.prisma.subcategory.delete({ where: { id } });
+    return { message: 'Subcategory deleted' };
   }
 }

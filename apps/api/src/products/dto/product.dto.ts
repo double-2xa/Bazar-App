@@ -55,11 +55,16 @@ export class AdminProductQueryDto extends PaginationQueryDto {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  @IsOptional()
+  @IsIn(['all', 'live', 'inactive'])
+  status?: 'all' | 'live' | 'inactive';
 }
 
 export class CreateProductDto {
+  @IsOptional()
   @IsUUID()
-  categoryId!: string;
+  categoryId?: string;
 
   @IsString()
   name!: string;
@@ -68,18 +73,20 @@ export class CreateProductDto {
   @IsString()
   slug?: string;
 
+  @IsOptional()
   @IsString()
-  description!: string;
+  description?: string;
 
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   normalPrice!: number;
 
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  companyPrice!: number;
+  companyPrice?: number;
 
   @Type(() => Number)
   @IsNumber()

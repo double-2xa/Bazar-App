@@ -44,6 +44,7 @@ export class ProductsController {
     return this.productsService.findAll({
       ...query,
       includeInactive: true,
+      active: query.status === 'live' ? true : query.status === 'inactive' ? false : undefined,
     });
   }
 
