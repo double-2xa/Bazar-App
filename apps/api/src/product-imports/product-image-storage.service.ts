@@ -41,9 +41,23 @@ export class ProductImageStorageService {
     await mkdir(directory, { recursive: true });
     const filename = `${randomUUID()}.${extension}`;
     await writeFile(resolve(directory, filename), bytes, { flag: 'wx' });
-    const path = `/uploads/products/${filename}`;
-    if (!process.env.PUBLIC_API_URL) return path;
-    return new URL(path, process.env.PUBLIC_API_URL).toString();
+    return this.publicUrl(`/api/uploads/products/${filename}`);
+  }
+
+  public publicUrl(value: string): string {
+    const configured = process.env.PUBLIC_API_URL?.trim();
+    if (!configured) return value.replace(/^\/uploads\//, '/api/uploads/');
+
+    const apiUrl = new URL(configured.endsWith('/') ? configured : `${configured}/`);
+    const canonicalPath = (() => {
+      try {
+        const current = new URL(value, apiUrl);
+        return current.pathname.replace(/^\/uploads\//, '/api/uploads/');
+      } catch {
+        return value.replace(/^\/uploads\//, '/api/uploads/');
+      }
+    })();
+    return new URL(canonicalPath.replace(/^\//, ''), `${apiUrl.origin}/`).toString();
   }
 
   private detectExtension(bytes: Buffer): 'jpg' | 'png' | 'webp' | null {

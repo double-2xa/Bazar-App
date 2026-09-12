@@ -277,7 +277,8 @@ export class ProductImportsService {
     const issues = Array.isArray(row.issues)
       ? row.issues.filter((issue) => typeof issue === 'string' && !['MISSING_IMAGE', 'IMAGE_DOWNLOAD_FAILED', 'INVALID_IMAGE_URL', 'UNSUPPORTED_IMAGE_FORMAT'].includes(issue))
       : [];
-    return this.prisma.productImportRow.update({ where: { id: rowId }, data: { storedImageUrl, issues, errorMessage: null } });
+    const updated = await this.prisma.productImportRow.update({ where: { id: rowId }, data: { storedImageUrl, issues, errorMessage: null } });
+    return this.formatRow(updated);
   }
 
   async queueImport(batchId: string) {
@@ -363,7 +364,7 @@ export class ProductImportsService {
     const barcode = row.barcode;
     const normalPrice = row.normalPrice;
     const displayName = row.nameEn || row.nameAr!;
-    const imageUrl = row.storedImageUrl || undefined;
+    const imageUrl = row.storedImageUrl ? this.imageStorage.publicUrl(row.storedImageUrl) : undefined;
     return this.prisma.$transaction(async (tx) => {
       if (row.action === 'overwrite') {
         if (!row.existingProductId) throw new BadRequestException('Existing product is unavailable');
@@ -493,7 +494,12 @@ export class ProductImportsService {
     };
   }
 
-  private formatRow<T extends { normalPrice: unknown; companyPrice: unknown }>(row: T) {
-    return { ...row, normalPrice: row.normalPrice === null ? null : Number(row.normalPrice), companyPrice: row.companyPrice === null ? null : Number(row.companyPrice) };
+  private formatRow<T extends { normalPrice: unknown; companyPrice: unknown; storedImageUrl?: string | null }>(row: T) {
+    return {
+      ...row,
+      normalPrice: row.normalPrice === null ? null : Number(row.normalPrice),
+      companyPrice: row.companyPrice === null ? null : Number(row.companyPrice),
+      ...(row.storedImageUrl ? { storedImageUrl: this.imageStorage.publicUrl(row.storedImageUrl) } : {}),
+    };
   }
 }

@@ -14,7 +14,15 @@ async function bootstrap() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(json({ limit: process.env.HTTP_BODY_LIMIT || '256kb' }));
   app.use(urlencoded({ extended: false, limit: process.env.HTTP_BODY_LIMIT || '256kb' }));
-  app.useStaticAssets(resolve(process.cwd(), 'uploads'), {
+  const uploadsDirectory = resolve(process.cwd(), 'uploads');
+  app.useStaticAssets(uploadsDirectory, {
+    prefix: '/api/uploads/',
+    maxAge: '1y',
+    immutable: true,
+  });
+  // Keep old image URLs working while clients and stored catalog records migrate
+  // to the API-prefixed route used by production ingress configurations.
+  app.useStaticAssets(uploadsDirectory, {
     prefix: '/uploads/',
     maxAge: '1y',
     immutable: true,

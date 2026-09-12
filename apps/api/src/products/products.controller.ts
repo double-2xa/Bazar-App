@@ -67,7 +67,7 @@ export class ProductsController {
     await mkdir(uploadDirectory, { recursive: true });
     const filename = `${randomUUID()}.${extension}`;
     await writeFile(resolve(uploadDirectory, filename), bytes, { flag: 'wx' });
-    return { path: `/uploads/products/${filename}` };
+    return { path: `/api/uploads/products/${filename}` };
   }
 
   @Public()

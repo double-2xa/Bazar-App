@@ -156,7 +156,7 @@ export class ProductsService {
 
   private assertSafeImageUrls(primary?: string, images?: string[]) {
     for (const value of [primary, ...(images ?? [])].filter(Boolean) as string[]) {
-      if (/^\/uploads\/products\/[a-f0-9-]+\.(?:jpg|png|webp)$/i.test(value)) continue;
+      if (/^\/(?:api\/)?uploads\/products\/[a-f0-9-]+\.(?:jpg|png|webp)$/i.test(value)) continue;
       try {
         const url = new URL(value);
         if ((url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password) {
