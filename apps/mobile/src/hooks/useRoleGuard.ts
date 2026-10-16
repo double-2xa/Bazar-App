@@ -15,11 +15,6 @@ export function useRoleGuard({ allowed }: UseRoleGuardOptions) {
   useEffect(() => {
     if (isLoading) return;
 
-    if (user?.role === 'admin') {
-      router.replace('/(auth)/login');
-      return;
-    }
-
     if (allowed === 'delivery_agent') {
       if (!isAuthenticated || user?.role !== 'delivery_agent') {
         router.replace('/(tabs)');

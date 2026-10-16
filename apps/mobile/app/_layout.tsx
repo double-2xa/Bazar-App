@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { colors } from '@/theme';
 import { PushNotificationManager } from '@/components/PushNotificationManager';
 import { CartAddFeedback } from '@/components/CartAddFeedback';
+import { TrafficTracker } from '@/components/TrafficTracker';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
@@ -24,6 +25,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <WebAppFrame>
         <QueryClientProvider client={queryClient}>
+          <TrafficTracker />
           <PushNotificationManager />
           <StatusBar style="dark" />
           <Stack

@@ -16,6 +16,10 @@ export class ProductsService {
     };
   }
 
+  emptyCatalog(page = 1, limit = 20) {
+    return { data: [], total: 0, page, limit, totalPages: 0 };
+  }
+
   async findAll(query: {
     page?: number;
     limit?: number;
@@ -193,5 +197,13 @@ export class ProductsService {
     await this.findOne(id);
     await this.prisma.product.delete({ where: { id } });
     return { message: 'Product deleted' };
+  }
+
+  async bulkRemove(productIds: string[]) {
+    const ids = [...new Set(productIds)];
+    const existing = await this.prisma.product.findMany({ where: { id: { in: ids } }, select: { id: true } });
+    if (existing.length !== ids.length) throw new NotFoundException('One or more selected products no longer exist');
+    const result = await this.prisma.product.deleteMany({ where: { id: { in: ids } } });
+    return { deleted: result.count };
   }
 }

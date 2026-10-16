@@ -2104,6 +2104,34 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .text-danger { color: #b42318; }
 .category-subcategories { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; min-width: 180px; }.category-subcategories > span { padding: 3px 7px; border-radius: 999px; background: #f0f2f5; font-size: 10px; }.category-add-subcategory { border: 0; background: transparent; color: var(--primary); cursor: pointer; font-size: 11px; font-weight: 600; }.category-subcategory-add { display: flex; gap: 4px; width: 100%; }.category-subcategory-add input { min-width: 120px; padding: 5px 7px; }.category-subcategory-add button { padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: #fff; font-size: 10px; cursor: pointer; }
 .imported-products-table { min-width: 1250px; }.import-category-controls { display: grid; gap: 4px; min-width: 150px; }.import-category-controls select { max-width: 180px; font-size: 11px; }
+
+/* Website traffic */
+.traffic-period { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.traffic-period button { border: 0; border-radius: 8px; background: transparent; padding: 8px 12px; color: var(--muted); cursor: pointer; font-weight: 650; }
+.traffic-period button.active { color: #fff; background: var(--primary); box-shadow: 0 5px 12px color-mix(in srgb, var(--primary) 25%, transparent); }
+.traffic-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.traffic-kpi { padding: 20px; display: grid; gap: 7px; }
+.traffic-kpi span { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.traffic-kpi strong { font-size: 30px; letter-spacing: -.04em; }
+.traffic-kpi small { color: var(--muted); }
+.traffic-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr) minmax(220px, .8fr); gap: 14px; margin-bottom: 18px; }
+.traffic-chart, .traffic-breakdown { padding: 20px; min-height: 310px; }
+.traffic-card-title h2, .traffic-breakdown h2, .traffic-table-header h2 { margin: 0; font-size: 17px; }
+.traffic-card-title p, .traffic-table-header p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.traffic-bars { height: 225px; display: flex; align-items: end; gap: 8px; padding-top: 28px; overflow-x: auto; }
+.traffic-bar-column { height: 100%; min-width: 34px; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: end; gap: 5px; }
+.traffic-bar-column > span { font-size: 10px; color: var(--muted); }
+.traffic-bar { width: min(28px, 75%); min-height: 5px; border-radius: 7px 7px 2px 2px; background: linear-gradient(180deg, var(--primary), #8a2735); }
+.traffic-bar-column small { font-size: 9px; color: var(--muted); white-space: nowrap; }
+.traffic-ranked { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.traffic-ranked span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.traffic-ranked strong { font-variant-numeric: tabular-nums; }
+.traffic-subtitle { margin-top: 24px !important; }
+.traffic-table-header { display: flex; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+.traffic-visits table { min-width: 1050px; }
+.traffic-visits code { font-size: 11px; margin-right: 6px; }
+@media (max-width: 1100px) { .traffic-kpis { grid-template-columns: repeat(2, 1fr); } .traffic-grid { grid-template-columns: 1fr 1fr; } .traffic-chart { grid-column: 1 / -1; } }
+@media (max-width: 700px) { .traffic-kpis, .traffic-grid { grid-template-columns: 1fr; } .traffic-chart { grid-column: auto; } .traffic-period { width: 100%; overflow-x: auto; } }
 .import-image-control { display: grid; gap: 4px; }.import-image-control label { color: var(--primary); cursor: pointer; font-size: 10px; font-weight: 600; }.import-image-control input { display: none; }
 @media (max-width: 900px) { .import-range-grid { grid-template-columns: 1fr 1fr; }.import-preview-header, .import-final-actions { flex-direction: column; align-items: stretch; }.import-summary-pills { justify-content: flex-start; } }
 .product-image-editor > input,

@@ -9,6 +9,8 @@ import {
   Max,
   MaxLength,
   IsIn,
+  ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
@@ -175,4 +177,12 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class BulkDeleteProductsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsUUID(undefined, { each: true })
+  productIds!: string[];
 }

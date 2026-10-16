@@ -26,7 +26,6 @@ export default function SplashScreen() {
       if (user?.role === 'delivery_agent') {
         router.replace('/(delivery)');
       } else if (user?.role === 'admin') {
-        useAuthStore.getState().logout();
         router.replace('/(tabs)');
       } else if (isCompanyAwaitingAccess(user)) {
         router.replace('/company-pending');

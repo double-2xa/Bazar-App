@@ -10,31 +10,35 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { mkdir, writeFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { resolve } from 'path';
 import { ProductsService } from './products.service';
-import { AdminProductQueryDto, CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
-import { Public, Roles } from '../common/decorators/roles.decorator';
+import { AdminProductQueryDto, BulkDeleteProductsDto, CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
+import { OptionalAuth, Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser, JwtPayload } from '../common/decorators/current-user.decorator';
 
 @Controller('products')
 export class ProductsController {
   constructor(private productsService: ProductsService) {}
 
-  @Public()
+  @OptionalAuth()
   @Get()
-  findAll(@Query() query: ProductQueryDto) {
+  findAll(@Query() query: ProductQueryDto, @CurrentUser() user?: JwtPayload) {
+    if (process.env.CATALOG_ADMIN_ONLY !== 'false' && user?.role !== 'admin') return this.productsService.emptyCatalog(query.page, query.limit);
     return this.productsService.findAll({
       ...query,
       featured: query.featured === 'true',
     });
   }
 
-  @Public()
+  @OptionalAuth()
   @Get('slug/:slug')
-  findBySlug(@Param('slug') slug: string) {
+  findBySlug(@Param('slug') slug: string, @CurrentUser() user?: JwtPayload) {
+    if (process.env.CATALOG_ADMIN_ONLY !== 'false' && user?.role !== 'admin') throw new NotFoundException('Product not found');
     return this.productsService.findBySlug(slug);
   }
 
@@ -70,9 +74,16 @@ export class ProductsController {
     return { path: `/api/uploads/products/${filename}` };
   }
 
-  @Public()
+  @Roles('admin')
+  @Delete('admin/bulk')
+  bulkRemove(@Body() dto: BulkDeleteProductsDto) {
+    return this.productsService.bulkRemove(dto.productIds);
+  }
+
+  @OptionalAuth()
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string, @CurrentUser() user?: JwtPayload) {
+    if (process.env.CATALOG_ADMIN_ONLY !== 'false' && user?.role !== 'admin') throw new NotFoundException('Product not found');
     return this.productsService.findOne(id);
   }
 

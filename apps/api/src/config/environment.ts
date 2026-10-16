@@ -31,6 +31,7 @@ export function validateEnvironment(config: Record<string, unknown>) {
 
     const access = secureSecret(config, 'JWT_ACCESS_SECRET');
     const refresh = secureSecret(config, 'JWT_REFRESH_SECRET');
+    secureSecret(config, 'TRAFFIC_HASH_SECRET');
     if (access === refresh) throw new Error('JWT access and refresh secrets must be different');
 
     const encryptionKey = required(config, 'LOCATION_ENCRYPTION_KEY');

@@ -63,6 +63,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -77,7 +79,7 @@ export default function ProductsPage() {
       .get<PaginatedResponse<Product>>('/products/admin/all', {
         params: { page, limit: 50, search: search || undefined, status: statusFilter },
       })
-      .then((response) => { setProducts(response.data.data); setTotal(response.data.total); setTotalPages(response.data.totalPages); })
+      .then((response) => { setProducts(response.data.data); setTotal(response.data.total); setTotalPages(response.data.totalPages); setSelectedProductIds([]); })
       .catch((err) => setError(getApiErrorMessage(err, 'Failed to load products.')))
       .finally(() => setLoading(false));
   }, [page, search, statusFilter]);
@@ -280,6 +282,24 @@ export default function ProductsPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!selectedProductIds.length) return;
+    setDeleting(true);
+    setError('');
+    try {
+      const response = await api.delete<{ deleted: number }>('/products/admin/bulk', { data: { productIds: selectedProductIds } });
+      setBulkDeleteOpen(false);
+      setMessage(`${response.data.deleted} product${response.data.deleted === 1 ? '' : 's'} deleted successfully.`);
+      loadProducts();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not delete the selected products. Products used by existing orders may need to be made inactive instead.'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const allPageSelected = products.length > 0 && products.every((product) => selectedProductIds.includes(product.id));
+
   return (
     <div>
       <div className="products-header">
@@ -297,6 +317,7 @@ export default function ProductsPage() {
         <input placeholder="Search name or barcode…" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} aria-label="Search products" />
         <select aria-label="Product status" value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as typeof statusFilter); setPage(1); }}><option value="live">Live products</option><option value="inactive">Inactive products</option><option value="all">All products</option></select>
         <span>{total.toLocaleString()} product{total === 1 ? '' : 's'}</span>
+        <button type="button" className="btn btn-outline" disabled={!selectedProductIds.length} onClick={() => { setError(''); setMessage(''); setBulkDeleteOpen(true); }}>Delete selected ({selectedProductIds.length})</button>
       </div>
 
       <div className="card products-table-card">
@@ -308,6 +329,7 @@ export default function ProductsPage() {
           <table className="table">
             <thead>
               <tr>
+                <th><input type="checkbox" aria-label="Select all products on this page" checked={allPageSelected} onChange={() => setSelectedProductIds(allPageSelected ? [] : products.map((product) => product.id))} /></th>
                 <th>Product</th>
                 <th>Category</th>
                 <th>Normal price</th>
@@ -320,6 +342,7 @@ export default function ProductsPage() {
             <tbody>
               {products.map((product) => (
                 <tr key={product.id}>
+                  <td><input type="checkbox" aria-label={`Select ${product.name}`} checked={selectedProductIds.includes(product.id)} onChange={() => setSelectedProductIds((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} /></td>
                   <td>
                     <div className="product-table-identity">
                       {product.imageUrl ? <img src={resolveApiAssetUrl(product.imageUrl)} alt="" loading="lazy" /> : <span className="product-table-placeholder" aria-hidden>▧</span>}
@@ -436,6 +459,17 @@ export default function ProductsPage() {
         confirmLabel="Delete product"
         onCancel={() => { if (!deleting) { setDeleteTarget(null); setError(''); } }}
         onConfirm={handleDelete}
+      />
+      <DeleteConfirmationDialog
+        open={bulkDeleteOpen}
+        title="Delete selected products?"
+        subject={`${selectedProductIds.length} selected product${selectedProductIds.length === 1 ? '' : 's'}`}
+        warning="This permanently removes the selected products. Products referenced by existing orders cannot be deleted; make those products inactive instead."
+        busy={deleting}
+        error={bulkDeleteOpen ? error : null}
+        confirmLabel="Delete selected"
+        onCancel={() => { if (!deleting) { setBulkDeleteOpen(false); setError(''); } }}
+        onConfirm={handleBulkDelete}
       />
     </div>
   );

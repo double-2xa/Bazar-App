@@ -26,6 +26,7 @@ import { RedisModule } from "./redis/redis.module";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { ProductImportsModule } from "./product-imports/product-imports.module";
+import { TrafficModule } from "./traffic/traffic.module";
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { ProductImportsModule } from "./product-imports/product-imports.module";
     MaintenanceModule,
     NotificationsModule,
     ProductImportsModule,
+    TrafficModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
