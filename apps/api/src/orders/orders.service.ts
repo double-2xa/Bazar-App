@@ -534,7 +534,7 @@ export class OrdersService {
       try {
         order = await this.prisma.$transaction(
           async (tx) => {
-            for (const item of orderItems) {
+      for (const item of orderItems) {
               const stockUpdate = await tx.product.updateMany({
                 where: {
                   id: item.productId,
@@ -551,25 +551,25 @@ export class OrdersService {
                   `Insufficient stock for ${item.productName}`,
                 );
               }
-            }
+      }
 
-            const created = await tx.order.create({
-              data: {
-                orderNumber: generateOrderNumber(),
-                userId,
-                addressId: dto.addressId,
+      const created = await tx.order.create({
+        data: {
+          orderNumber: generateOrderNumber(),
+          userId,
+          addressId: dto.addressId,
                 idempotencyKey,
                 idempotencyHash,
                 paymentMethod,
                 paymentStatus: "unpaid",
-                subtotal,
-                deliveryFee,
-                discountAmount,
-                taxAmount,
-                totalAmount,
-                customerNote: dto.customerNote,
-                items: { create: orderItems },
-                statusHistory: {
+          subtotal,
+          deliveryFee,
+          discountAmount,
+          taxAmount,
+          totalAmount,
+          customerNote: dto.customerNote,
+          items: { create: orderItems },
+          statusHistory: {
                   create: {
                     status: "pending",
                     note: isWish
@@ -577,25 +577,25 @@ export class OrdersService {
                       : "Order placed",
                     changedByUserId: userId,
                   },
-                },
-              },
-              include: {
-                items: true,
-                address: true,
+          },
+        },
+        include: {
+          items: true,
+          address: true,
                 user: {
                   select: { id: true, fullName: true, email: true, phone: true },
                 },
-              },
-            });
+        },
+      });
 
-            await tx.cartItem.deleteMany({
-              where: {
-                cart: { userId },
-                productId: { in: orderItems.map((i) => i.productId) },
-              },
-            });
+      await tx.cartItem.deleteMany({
+        where: {
+          cart: { userId },
+          productId: { in: orderItems.map((i) => i.productId) },
+        },
+      });
 
-            return created;
+      return created;
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
@@ -652,12 +652,12 @@ export class OrdersService {
   async getMyOrders(userId: string, page = 1, limit = 20) {
     const [orders, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
-        where: { userId },
-        include: {
-          items: true,
-          address: true,
-          deliveryAgent: { select: { id: true, fullName: true, phone: true } },
-        },
+      where: { userId },
+      include: {
+        items: true,
+        address: true,
+        deliveryAgent: { select: { id: true, fullName: true, phone: true } },
+      },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         skip: (page - 1) * limit,
         take: limit,

@@ -21,6 +21,7 @@ import {
   ProductCard,
   Badge,
   LoadingSkeleton,
+  HorizontalNavRow,
 } from '@/components';
 import { useAppLayoutWidth } from '@/layout/webLayout';
 import { useAddToCart } from '@/hooks/useAddToCart';
@@ -70,9 +71,23 @@ export default function ProductDetailsScreen() {
     }
   };
 
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  };
+
   if (isLoading || !product) {
     return (
       <View style={styles.loading}>
+        <TouchableOpacity
+          style={styles.backBtnInline}
+          onPress={goBack}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
+        </TouchableOpacity>
         <LoadingSkeleton height={300} />
         <LoadingSkeleton height={24} style={{ marginTop: spacing.md }} />
         <LoadingSkeleton height={16} width="50%" style={{ marginTop: spacing.sm }} />
@@ -87,16 +102,50 @@ export default function ProductDetailsScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View>
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-          {images.map((uri, i) => (
-            <Image
-              key={i}
-              source={{ uri }}
-              style={[styles.heroImage, { width: layoutWidth }]}
-              resizeMode="cover"
-            />
-          ))}
-        </ScrollView>
+        <HorizontalNavRow step={layoutWidth} alwaysShow enabled={images.length > 1}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(event) => {
+              const width = event.nativeEvent.layoutMeasurement.width || layoutWidth;
+              if (!width) return;
+              const index = Math.round(event.nativeEvent.contentOffset.x / width);
+              setActiveImage(Math.max(0, Math.min(index, images.length - 1)));
+            }}
+            onMomentumScrollEnd={(event) => {
+              const width = event.nativeEvent.layoutMeasurement.width || layoutWidth;
+              const index = Math.round(event.nativeEvent.contentOffset.x / width);
+              setActiveImage(Math.max(0, Math.min(index, images.length - 1)));
+            }}
+          >
+            {images.map((uri, i) => (
+              <View key={i} style={[styles.heroFrame, { width: layoutWidth }]}>
+                <Image
+                  source={{ uri }}
+                  style={styles.heroImage}
+                  resizeMode="contain"
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </HorizontalNavRow>
+        {images.length > 1 ? (
+          <View style={styles.dots}>
+            {images.map((_, i) => (
+              <View key={i} style={[styles.dot, i === activeImage && styles.dotActive]} />
+            ))}
+          </View>
+        ) : null}
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={goBack}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.wishlistBtn}
           onPress={() => toggleWishlist(product.id, product)}
@@ -176,17 +225,20 @@ export default function ProductDetailsScreen() {
         {related?.data && related.data.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Related Products</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {related.data
-                .filter((p) => p.id !== product.id)
-                .map((p) => (
-                  <View key={p.id} style={{ marginRight: spacing.sm }}>
-                    <ProductCard product={p} onPress={() => router.push(`/product/${p.id}`)} />
-                  </View>
-                ))}
-            </ScrollView>
+            <HorizontalNavRow step={240}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {related.data
+                  .filter((p) => p.id !== product.id)
+                  .map((p) => (
+                    <View key={p.id} style={{ marginRight: spacing.sm }}>
+                      <ProductCard product={p} onPress={() => router.push(`/product/${p.id}`)} />
+                    </View>
+                  ))}
+              </ScrollView>
+            </HorizontalNavRow>
           </>
         )}
+        <View style={styles.bottomSpacer} />
       </View>
     </ScrollView>
   );
@@ -195,7 +247,47 @@ export default function ProductDetailsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loading: { padding: spacing.md },
-  heroImage: { height: 320, backgroundColor: colors.border },
+  backBtn: {
+    position: 'absolute',
+    top: spacing.md,
+    left: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.full,
+    padding: 10,
+    zIndex: 3,
+    ...shadows.sm,
+  },
+  backBtnInline: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.full,
+    padding: 10,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  heroFrame: {
+    height: 360,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroImage: { width: '100%', height: '100%' },
+  dots: {
+    position: 'absolute',
+    bottom: spacing.md,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(31, 31, 31, 0.25)',
+  },
+  dotActive: { backgroundColor: colors.primary, width: 16 },
   wishlistBtn: {
     position: 'absolute',
     top: spacing.md,
@@ -203,9 +295,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.full,
     padding: 10,
+    zIndex: 3,
     ...shadows.sm,
   },
   content: { padding: spacing.md },
+  bottomSpacer: { height: spacing.tabBarOffset + spacing.xl },
   brand: { ...typography.caption, color: colors.mutedText, textTransform: 'uppercase', letterSpacing: 1 },
   title: { ...typography.h2, color: colors.text, marginTop: spacing.xs },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.sm },

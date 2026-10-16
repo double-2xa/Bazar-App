@@ -1,4 +1,4 @@
-﻿import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   SectionHeader,
   HomeLoadingSkeleton,
   CompanyPriceToggle,
+  HorizontalNavRow,
 } from '@/components';
 import { useAuthStore } from '@/store/authStore';
 
@@ -36,28 +37,30 @@ function ProductRail({
   onSeeMore?: () => void;
 }) {
   return (
-    <FlatList
-      horizontal
-      data={products}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <View style={styles.railCard}>
-          <ProductCard product={item} onPress={() => router.push(`/product/${item.id}`)} />
-        </View>
-      )}
-      ListFooterComponent={
-        onSeeMore ? (
-          <TouchableOpacity style={styles.seeMoreCard} onPress={onSeeMore} activeOpacity={0.85}>
-            <View style={styles.seeMoreIcon}>
-              <Ionicons name="arrow-forward" size={22} color={colors.primary} />
-            </View>
-            <Text style={styles.seeMoreText}>{seeMoreLabel ?? 'See more'}</Text>
-          </TouchableOpacity>
-        ) : null
-      }
-      contentContainerStyle={styles.railList}
-      showsHorizontalScrollIndicator={false}
-    />
+    <HorizontalNavRow step={240}>
+      <FlatList
+        horizontal
+        data={products}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.railCard}>
+            <ProductCard product={item} onPress={() => router.push(`/product/${item.id}`)} />
+          </View>
+        )}
+        ListFooterComponent={
+          onSeeMore ? (
+            <TouchableOpacity style={styles.seeMoreCard} onPress={onSeeMore} activeOpacity={0.85}>
+              <View style={styles.seeMoreIcon}>
+                <Ionicons name="arrow-forward" size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.seeMoreText}>{seeMoreLabel ?? 'See more'}</Text>
+            </TouchableOpacity>
+          ) : null
+        }
+        contentContainerStyle={styles.railList}
+        showsHorizontalScrollIndicator={false}
+      />
+    </HorizontalNavRow>
   );
 }
 
@@ -166,16 +169,18 @@ export default function HomeScreen() {
           actionLabel="See all"
           onAction={() => router.push('/(tabs)/categories')}
         />
-        <FlatList
-          horizontal
-          data={categories}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <CategoryCard category={item} onPress={() => router.push(`/category/${item.slug}`)} />
-          )}
-          contentContainerStyle={styles.categoryList}
-          showsHorizontalScrollIndicator={false}
-        />
+        <HorizontalNavRow step={140}>
+          <FlatList
+            horizontal
+            data={categories}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <CategoryCard category={item} onPress={() => router.push(`/category/${item.slug}`)} />
+            )}
+            contentContainerStyle={styles.categoryList}
+            showsHorizontalScrollIndicator={false}
+          />
+        </HorizontalNavRow>
 
         <SectionHeader title="Top Sellers" />
         <ProductRail products={topSellers?.data ?? []} />

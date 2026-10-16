@@ -2,14 +2,10 @@ import { createContext, useContext, useMemo } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 import { spacing } from '@/theme';
 
-/** Phone / small browser — full bleed. */
+/** Phone / small browser. */
 export const WEB_PHONE_BREAKPOINT = 640;
 /** Tablet / small laptop. */
 export const WEB_TABLET_BREAKPOINT = 1024;
-/** Max content width on large desktops. */
-export const WEB_DESKTOP_MAX_WIDTH = 1180;
-/** Max content width on tablets. */
-export const WEB_TABLET_MAX_WIDTH = 840;
 
 export type WebBreakpoint = 'phone' | 'tablet' | 'desktop';
 
@@ -30,11 +26,9 @@ export function getWebBreakpoint(windowWidth: number): WebBreakpoint {
   return 'desktop';
 }
 
+/** Full viewport width — web storefront is edge-to-edge. */
 export function getWebContentWidth(windowWidth: number): number {
-  const bp = getWebBreakpoint(windowWidth);
-  if (bp === 'phone') return windowWidth;
-  if (bp === 'tablet') return Math.min(windowWidth - 32, WEB_TABLET_MAX_WIDTH);
-  return Math.min(windowWidth - 64, WEB_DESKTOP_MAX_WIDTH);
+  return windowWidth;
 }
 
 export function getProductColumns(contentWidth: number, platform: string = Platform.OS): number {
@@ -62,7 +56,7 @@ export function createWebLayoutValue(windowWidth: number): WebLayoutValue {
   };
 }
 
-/** Content width used for cards/heroes (framed on web, window on native). */
+/** Content width used for cards/heroes (full viewport on web). */
 export function useAppLayoutWidth(): number {
   const { width } = useWindowDimensions();
   const layout = useContext(WebLayoutContext);

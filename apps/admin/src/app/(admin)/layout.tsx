@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BRAND } from '@doublea/shared';
 import { formatTodayLabel } from '@/utils/format';
 
@@ -76,11 +76,16 @@ function isActivePath(pathname: string, href: string): boolean {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [todayLabel, setTodayLabel] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (!token && pathname !== '/login') router.replace('/login');
   }, [pathname, router]);
+
+  useEffect(() => {
+    setTodayLabel(formatTodayLabel());
+  }, []);
 
   if (pathname === '/login') return <>{children}</>;
 
@@ -133,7 +138,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className="admin-topbar">
           <div>
             <div className="admin-topbar__title">{BRAND.adminPanelTitle}</div>
-            <div className="admin-topbar__date">{formatTodayLabel()} · Lebanon</div>
+            <div className="admin-topbar__date" suppressHydrationWarning>
+              {todayLabel ? `${todayLabel} · Lebanon` : 'Lebanon'}
+            </div>
           </div>
           <div className="admin-topbar__meta">
             <span className="admin-topbar__badge"><span className="admin-topbar__status-dot" />Operations</span>

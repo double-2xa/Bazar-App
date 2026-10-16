@@ -40,7 +40,15 @@ IMPORT_IMAGE_CONCURRENCY=5
 - `Wholesale Price`
 - `Categories`
 - `Sub Categories`
-- `Image`
+- `Image` (one URL, or several URLs separated by commas; also `;` `|` or new lines)
 - `Stock` (optional; new products default to 50 when empty)
 
 Header matching ignores spaces, punctuation and capitalization. Prices may be numeric cells or text using a decimal comma.
+
+Example multi-image cell:
+
+```text
+https://example.com/a.jpg, https://example.com/b.jpg, https://example.com/c.jpg
+```
+
+All listed image URLs are downloaded on Import Batch and attached to the product when you publish. The first URL becomes the cover image.

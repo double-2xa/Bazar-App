@@ -130,11 +130,22 @@ export class ProductImportsService {
         if (row.companyPrice === null) warnings.push('MISSING_WHOLESALE_PRICE');
         if (!row.sourceImage) warnings.push('MISSING_IMAGE');
         if (row.sourceImage && !row.sourceImage.startsWith('embedded:')) {
-          try {
-            const imageUrl = new URL(row.sourceImage);
-            if (!['http:', 'https:'].includes(imageUrl.protocol)) warnings.push('INVALID_IMAGE_URL');
-            if (/\.gif$/i.test(imageUrl.pathname)) warnings.push('UNSUPPORTED_IMAGE_FORMAT');
-          } catch { warnings.push('INVALID_IMAGE_URL'); }
+          const imageSources = this.splitImageSources(row.sourceImage);
+          if (!imageSources.length) warnings.push('MISSING_IMAGE');
+          for (const source of imageSources) {
+            if (source.startsWith('embedded:')) continue;
+            try {
+              const imageUrl = new URL(source);
+              if (!['http:', 'https:'].includes(imageUrl.protocol)) {
+                if (!warnings.includes('INVALID_IMAGE_URL')) warnings.push('INVALID_IMAGE_URL');
+              }
+              if (/\.gif$/i.test(imageUrl.pathname) && !warnings.includes('UNSUPPORTED_IMAGE_FORMAT')) {
+                warnings.push('UNSUPPORTED_IMAGE_FORMAT');
+              }
+            } catch {
+              if (!warnings.includes('INVALID_IMAGE_URL')) warnings.push('INVALID_IMAGE_URL');
+            }
+          }
         }
 
         const category = row.categoryName ? categoryByName.get(this.normalizeText(row.categoryName)) : undefined;
@@ -297,7 +308,7 @@ export class ProductImportsService {
       const counts = await this.rowCounts(batchId);
       await this.prisma.productImportBatch.update({ where: { id: batchId }, data: counts });
     }
-    await Promise.all(rows.map((row) => this.removeUnusedImportedImage(row.storedImageUrl)));
+    await Promise.all(rows.flatMap((row) => this.splitImageSources(row.storedImageUrl).map((url) => this.removeUnusedImportedImage(url))));
     return { deleted: rows.length };
   }
 
@@ -308,7 +319,7 @@ export class ProductImportsService {
     const match = pathname.match(/^\/(?:api\/)?uploads\/products\/([a-f0-9-]+\.(?:jpg|png|webp))$/i);
     if (!match) return;
     const [otherRows, products, productImages] = await Promise.all([
-      this.prisma.productImportRow.count({ where: { storedImageUrl: imageUrl } }),
+      this.prisma.productImportRow.count({ where: { storedImageUrl: { contains: match[1] } } }),
       this.prisma.product.count({ where: { imageUrl } }),
       this.prisma.productImage.count({ where: { imageUrl } }),
     ]);
@@ -342,16 +353,25 @@ export class ProductImportsService {
     }
 
     let workbook: ExcelJS.Workbook | null = null;
-    if (rows.some((row) => row.sourceImage?.startsWith('embedded:'))) workbook = await this.loadWorkbook(await readFile(batch.storedFilePath));
+    if (rows.some((row) => this.splitImageSources(row.sourceImage).some((source) => source.startsWith('embedded:')))) {
+      workbook = await this.loadWorkbook(await readFile(batch.storedFilePath));
+    }
     const concurrency = Math.max(1, Math.min(8, Number(process.env.IMPORT_IMAGE_CONCURRENCY || 5)));
     for (let offset = 0; offset < rows.length; offset += concurrency) {
       await Promise.all(rows.slice(offset, offset + concurrency).map(async (row) => {
         try {
           let storedImageUrl = row.storedImageUrl;
-          if (!storedImageUrl && row.sourceImage?.startsWith('http')) storedImageUrl = await this.imageStorage.storeRemote(row.sourceImage);
-          if (!storedImageUrl && row.sourceImage?.startsWith('embedded:') && workbook) {
-            const image = workbook.getImage(Number(row.sourceImage.slice('embedded:'.length)));
-            if (image?.buffer) storedImageUrl = await this.imageStorage.storeBytes(Buffer.from(image.buffer));
+          if (!storedImageUrl && row.sourceImage) {
+            const storedUrls: string[] = [];
+            for (const source of this.splitImageSources(row.sourceImage)) {
+              if (source.startsWith('http')) {
+                storedUrls.push(await this.imageStorage.storeRemote(source));
+              } else if (source.startsWith('embedded:') && workbook) {
+                const image = workbook.getImage(Number(source.slice('embedded:'.length)));
+                if (image?.buffer) storedUrls.push(await this.imageStorage.storeBytes(Buffer.from(image.buffer)));
+              }
+            }
+            storedImageUrl = storedUrls.length ? storedUrls.join(',') : null;
           }
           await this.prisma.productImportRow.update({ where: { id: row.id }, data: { storedImageUrl, status: 'imported', errorMessage: null } });
         } catch (error) {
@@ -399,7 +419,8 @@ export class ProductImportsService {
     const barcode = row.barcode;
     const normalPrice = row.normalPrice;
     const displayName = row.nameEn || row.nameAr!;
-    const imageUrl = row.storedImageUrl ? this.imageStorage.publicUrl(row.storedImageUrl) : undefined;
+    const imageUrls = this.splitImageSources(row.storedImageUrl).map((value) => this.imageStorage.publicUrl(value));
+    const imageUrl = imageUrls[0];
     return this.prisma.$transaction(async (tx) => {
       if (row.action === 'overwrite') {
         if (!row.existingProductId) throw new BadRequestException('Existing product is unavailable');
@@ -418,6 +439,12 @@ export class ProductImportsService {
             ...(imageUrl ? { imageUrl } : {}),
           },
         });
+        if (imageUrls.length) {
+          await tx.productImage.deleteMany({ where: { productId: product.id } });
+          await tx.productImage.createMany({
+            data: imageUrls.map((url, sortOrder) => ({ productId: product.id, imageUrl: url, sortOrder })),
+          });
+        }
         await tx.productImportRow.update({ where: { id: row.id }, data: { status: 'published', publishedProductId: product.id, errorMessage: null } });
         return product.id;
       }
@@ -438,7 +465,9 @@ export class ProductImportsService {
           stockQuantity: row.stockQuantity ?? 50,
           imageUrl,
           isActive: true,
-          images: imageUrl ? { create: [{ imageUrl, sortOrder: 0 }] } : undefined,
+          images: imageUrls.length
+            ? { create: imageUrls.map((url, sortOrder) => ({ imageUrl: url, sortOrder })) }
+            : undefined,
         },
       });
       await tx.productImportRow.update({ where: { id: row.id }, data: { status: 'published', publishedProductId: product.id, errorMessage: null } });
@@ -512,6 +541,15 @@ export class ProductImportsService {
     return images;
   }
 
+  private splitImageSources(value: string | null | undefined): string[] {
+    if (!value?.trim()) return [];
+    if (value.startsWith('embedded:')) return [value.trim()];
+    return value
+      .split(/[,;\n|]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
   private async findExistingProducts(barcodes: string[]) {
     const unique = [...new Set(barcodes)];
     const products: Array<{ id: string; barcode: string | null }> = [];
@@ -530,11 +568,17 @@ export class ProductImportsService {
   }
 
   private formatRow<T extends { normalPrice: unknown; companyPrice: unknown; storedImageUrl?: string | null }>(row: T) {
+    const storedImages = this.splitImageSources(row.storedImageUrl ?? null).map((value) => this.imageStorage.publicUrl(value));
     return {
       ...row,
       normalPrice: row.normalPrice === null ? null : Number(row.normalPrice),
       companyPrice: row.companyPrice === null ? null : Number(row.companyPrice),
-      ...(row.storedImageUrl ? { storedImageUrl: this.imageStorage.publicUrl(row.storedImageUrl) } : {}),
+      ...(storedImages.length
+        ? {
+            storedImageUrl: storedImages[0],
+            storedImageUrls: storedImages,
+          }
+        : {}),
     };
   }
 }

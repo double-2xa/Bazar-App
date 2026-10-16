@@ -50,11 +50,6 @@ body {
 #root, #root > div {
   max-width: 100%;
 }
-@media (min-width: 640px) {
-  body {
-    background-color: #FFF3D6;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -11,7 +11,6 @@ type ProductForm = {
   name: string;
   brand: string;
   description: string;
-  imageUrl: string;
   categoryId: string;
   normalPrice: string;
   companyPrice: string;
@@ -19,17 +18,38 @@ type ProductForm = {
   isActive: boolean;
 };
 
+type GalleryItem = {
+  key: string;
+  url: string;
+  file?: File;
+  preview: string;
+};
+
 const EMPTY_FORM: ProductForm = {
   name: '',
   brand: '',
   description: '',
-  imageUrl: '',
   categoryId: '',
   normalPrice: '',
   companyPrice: '',
   stockQuantity: '',
   isActive: true,
 };
+
+function galleryFromProduct(product: Product): GalleryItem[] {
+  const fromGallery = [...(product.images ?? [])]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((image, index) => ({
+      key: image.id || `existing-${index}`,
+      url: image.imageUrl,
+      preview: resolveApiAssetUrl(image.imageUrl),
+    }));
+  if (fromGallery.length > 0) return fromGallery;
+  if (product.imageUrl) {
+    return [{ key: 'primary', url: product.imageUrl, preview: resolveApiAssetUrl(product.imageUrl) }];
+  }
+  return [];
+}
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,8 +58,8 @@ export default function ProductsPage() {
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [dialog, setDialog] = useState<'create' | 'edit' | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState('');
+  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [imageUrlDraft, setImageUrlDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
@@ -94,15 +114,17 @@ export default function ProductsPage() {
 
   useEffect(() => {
     return () => {
-      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+      gallery.forEach((item) => {
+        if (item.preview.startsWith('blob:')) URL.revokeObjectURL(item.preview);
+      });
     };
-  }, [imagePreview]);
+  }, [gallery]);
 
   const openCreateDialog = () => {
     setForm(EMPTY_FORM);
     setEditingProduct(null);
-    setImageFile(null);
-    setImagePreview('');
+    setGallery([]);
+    setImageUrlDraft('');
     setError('');
     setMessage('');
     setDialog('create');
@@ -114,33 +136,76 @@ export default function ProductsPage() {
       name: product.name,
       brand: product.brand ?? '',
       description: product.description ?? '',
-      imageUrl: product.imageUrl ?? '',
       categoryId: product.categoryId ?? '',
       normalPrice: String(product.normalPrice),
       companyPrice: product.companyPrice === null ? '' : String(product.companyPrice),
       stockQuantity: String(product.stockQuantity),
       isActive: product.isActive,
     });
-    setImageFile(null);
-    setImagePreview(resolveApiAssetUrl(product.imageUrl));
+    setGallery(galleryFromProduct(product));
+    setImageUrlDraft('');
     setError('');
     setMessage('');
     setDialog('edit');
   };
 
-  const selectImage = (file?: File) => {
-    if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setError('Choose a JPEG, PNG, or WebP image.');
-      return;
+  const addImageFiles = (files: FileList | File[] | null | undefined) => {
+    if (!files || files.length === 0) return;
+    const next: GalleryItem[] = [];
+    for (const file of Array.from(files)) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        setError('Choose JPEG, PNG, or WebP images only.');
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Each image must be 5 MB or smaller.');
+        continue;
+      }
+      next.push({
+        key: `file-${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+        url: '',
+        file,
+        preview: URL.createObjectURL(file),
+      });
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('The image must be 5 MB or smaller.');
-      return;
-    }
+    if (next.length === 0) return;
     setError('');
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    setGallery((current) => [...current, ...next]);
+  };
+
+  const addImageUrl = () => {
+    const value = imageUrlDraft.trim();
+    if (!value) return;
+    setGallery((current) => [
+      ...current,
+      {
+        key: `url-${value}-${Math.random().toString(36).slice(2, 8)}`,
+        url: value,
+        preview: resolveApiAssetUrl(value),
+      },
+    ]);
+    setImageUrlDraft('');
+    setError('');
+  };
+
+  const removeGalleryItem = (key: string) => {
+    setGallery((current) => {
+      const target = current.find((item) => item.key === key);
+      if (target?.preview.startsWith('blob:')) URL.revokeObjectURL(target.preview);
+      return current.filter((item) => item.key !== key);
+    });
+  };
+
+  const moveGalleryItem = (key: string, direction: -1 | 1) => {
+    setGallery((current) => {
+      const index = current.findIndex((item) => item.key === key);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current;
+      const copy = [...current];
+      const [item] = copy.splice(index, 1);
+      copy.splice(nextIndex, 0, item);
+      return copy;
+    });
   };
 
   const uploadImage = async (file: File): Promise<string> => {
@@ -160,12 +225,17 @@ export default function ProductsPage() {
     setMessage('');
 
     try {
-      const imageUrl = imageFile ? await uploadImage(imageFile) : form.imageUrl.trim() || undefined;
+      const images: string[] = [];
+      for (const item of gallery) {
+        if (item.file) images.push(await uploadImage(item.file));
+        else if (item.url.trim()) images.push(item.url.trim());
+      }
       const payload = {
         name: form.name.trim(),
         brand: form.brand.trim() || undefined,
         description: form.description.trim(),
-        imageUrl,
+        imageUrl: images[0] ?? '',
+        images,
         categoryId: form.categoryId || undefined,
         normalPrice: Number(form.normalPrice),
         companyPrice: form.companyPrice === '' ? undefined : Number(form.companyPrice),
@@ -183,8 +253,8 @@ export default function ProductsPage() {
 
       setDialog(null);
       setEditingProduct(null);
-      setImageFile(null);
-      setImagePreview('');
+      setGallery([]);
+      setImageUrlDraft('');
       setForm(EMPTY_FORM);
       loadProducts();
     } catch (err) {
@@ -293,13 +363,53 @@ export default function ProductsPage() {
                 </div>
 
                 <div className="product-image-editor">
-                  <div className="product-image-preview">{imagePreview ? <img src={imagePreview} alt="Product preview" /> : <div><span aria-hidden>▧</span><p>Product image</p></div>}</div>
-                  <label className="product-upload-button" htmlFor="product-image-file">Upload image</label>
-                  <input id="product-image-file" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => selectImage(event.target.files?.[0])} />
-                  <span className="product-upload-help">JPEG, PNG or WebP · maximum 5 MB</span>
+                  <div className="product-image-gallery" aria-label="Product images">
+                    {gallery.length === 0 ? (
+                      <div className="product-image-preview product-image-preview--empty">
+                        <div><span aria-hidden>▧</span><p>No images yet</p></div>
+                      </div>
+                    ) : (
+                      gallery.map((item, index) => (
+                        <div key={item.key} className="product-gallery-item">
+                          <img src={item.preview} alt={`Product image ${index + 1}`} />
+                          {index === 0 ? <span className="product-gallery-badge">Cover</span> : null}
+                          <div className="product-gallery-actions">
+                            <button type="button" aria-label="Move image earlier" disabled={index === 0 || submitting} onClick={() => moveGalleryItem(item.key, -1)}>↑</button>
+                            <button type="button" aria-label="Move image later" disabled={index === gallery.length - 1 || submitting} onClick={() => moveGalleryItem(item.key, 1)}>↓</button>
+                            <button type="button" aria-label="Remove image" disabled={submitting} onClick={() => removeGalleryItem(item.key)}>×</button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <label className="product-upload-button" htmlFor="product-image-file">Upload images</label>
+                  <input
+                    id="product-image-file"
+                    className="sr-only"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(event) => {
+                      addImageFiles(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
+                  <span className="product-upload-help">Add several JPEG, PNG or WebP files · max 5 MB each. First image is the cover.</span>
                   <div className="product-image-or"><span>or</span></div>
                   <label htmlFor="product-image-url">Image URL</label>
-                  <input id="product-image-url" type="text" inputMode="url" value={form.imageUrl} onChange={(event) => { setForm({ ...form, imageUrl: event.target.value }); setImageFile(null); setImagePreview(resolveApiAssetUrl(event.target.value)); }} placeholder="https://..." />
+                  <div className="product-image-url-row">
+                    <input
+                      id="product-image-url"
+                      type="text"
+                      inputMode="url"
+                      value={imageUrlDraft}
+                      onChange={(event) => setImageUrlDraft(event.target.value)}
+                      placeholder="https://..."
+                    />
+                    <button type="button" className="btn btn-outline" disabled={!imageUrlDraft.trim() || submitting} onClick={addImageUrl}>
+                      Add
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -311,7 +421,7 @@ export default function ProductsPage() {
 
               {dialog === 'edit' ? <label className="product-status-control"><span><strong>Product active</strong><small>Inactive products remain saved but are hidden from customers.</small></span><input type="checkbox" checked={form.isActive} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} /></label> : null}
 
-              <div className="product-modal__actions"><button type="button" className="btn btn-outline" disabled={submitting} onClick={() => setDialog(null)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? imageFile ? 'Uploading…' : 'Saving…' : dialog === 'create' ? 'Create product' : 'Save changes'}</button></div>
+              <div className="product-modal__actions"><button type="button" className="btn btn-outline" disabled={submitting} onClick={() => setDialog(null)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Saving…' : dialog === 'create' ? 'Create product' : 'Save changes'}</button></div>
             </form>
           </div>
         </div>

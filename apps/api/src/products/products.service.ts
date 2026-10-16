@@ -104,15 +104,22 @@ export class ProductsService {
   async create(dto: CreateProductDto) {
     this.assertSafeImageUrls(dto.imageUrl, dto.images);
     const { images, slug: requestedSlug, sku: requestedSku, ...rest } = dto;
+    const imageList =
+      images?.length
+        ? images
+        : dto.imageUrl
+          ? [dto.imageUrl]
+          : [];
     const slug = requestedSlug?.trim() || await this.createUniqueSlug(dto.name);
     const sku = requestedSku?.trim() || `NP-${randomUUID().slice(0, 8).toUpperCase()}`;
     const product = await this.prisma.product.create({
       data: {
         ...rest,
+        imageUrl: rest.imageUrl || imageList[0] || null,
         slug,
         sku,
-        images: images?.length
-          ? { create: images.map((url, i) => ({ imageUrl: url, sortOrder: i })) }
+        images: imageList.length
+          ? { create: imageList.map((url, i) => ({ imageUrl: url, sortOrder: i })) }
           : undefined,
       },
       include: { images: true, category: true, subcategory: true },
@@ -140,16 +147,29 @@ export class ProductsService {
     await this.findOne(id);
     this.assertSafeImageUrls(dto.imageUrl, dto.images);
     const { images, ...rest } = dto;
-    const product = await this.prisma.product.update({
+    const imageList = images
+      ? images
+      : dto.imageUrl
+        ? [dto.imageUrl]
+        : undefined;
+    await this.prisma.product.update({
       where: { id },
-      data: rest,
-      include: { images: true, category: true, subcategory: true },
+      data: {
+        ...rest,
+        ...(imageList
+          ? { imageUrl: imageList[0] || null }
+          : dto.imageUrl !== undefined
+            ? { imageUrl: dto.imageUrl || null }
+            : {}),
+      },
     });
-    if (images) {
+    if (imageList) {
       await this.prisma.productImage.deleteMany({ where: { productId: id } });
-      await this.prisma.productImage.createMany({
-        data: images.map((url, i) => ({ productId: id, imageUrl: url, sortOrder: i })),
-      });
+      if (imageList.length) {
+        await this.prisma.productImage.createMany({
+          data: imageList.map((url, i) => ({ productId: id, imageUrl: url, sortOrder: i })),
+        });
+      }
     }
     return this.findOne(id);
   }

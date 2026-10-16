@@ -9,8 +9,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    // suppressHydrationWarning: browser extensions often inject attributes on <html>/<body>
+    // (e.g. cz-shortcut-listen) before React hydrates.
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

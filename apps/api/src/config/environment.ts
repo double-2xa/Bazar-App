@@ -56,7 +56,10 @@ export function validateEnvironment(config: Record<string, unknown>) {
 }
 
 export function configuredCorsOrigins(): string[] {
-  return (process.env.CORS_ORIGINS || 'http://localhost:3000')
+  return (
+    process.env.CORS_ORIGINS ||
+    'http://localhost:3000,http://localhost:3002,http://localhost:8081,http://localhost:8082'
+  )
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);

@@ -23,3 +23,4 @@ export { OrderStatusStepper } from './OrderStatusStepper';
 export { OrderTimeline } from './OrderTimeline';
 export { SignaturePad } from './SignaturePad';
 export { SignatureImage } from './SignatureImage';
+export { HorizontalNavRow } from './HorizontalNavRow';
